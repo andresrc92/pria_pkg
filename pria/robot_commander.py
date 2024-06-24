@@ -133,7 +133,7 @@ class RobotCommander(Node):
         translation, rotation = self.lookup_transform('base', 'tool0')
 
         if not self.inMotion and self.state == 0:
-            self.state = 1
+            # self.state = 1
             self.handle_next_pose([self.initial_pose.translation.x,self.initial_pose.translation.y,self.initial_pose.translation.z], [self.initial_pose.rotation.x,self.initial_pose.rotation.y,self.initial_pose.rotation.z,self.initial_pose.rotation.w])
 
         # if self.cv_image.any():
@@ -231,13 +231,13 @@ class RobotCommander(Node):
         # Read message content and assign it to
         # corresponding tf variables
         t.header.stamp = self.get_clock().now().to_msg()
-        t.header.frame_id = 'base'
+        t.header.frame_id = 'tool0'
         t.child_frame_id = 'next_pose'
 
         # We create the translation
-        t.transform.translation.x = random.random() * 0.1 + translation[0]
-        t.transform.translation.y = random.random() * 0.1 + translation[1]
-        t.transform.translation.z = 0.0 + translation[2]
+        t.transform.translation.x = random.randrange(-110, 110, 1) / 1000 #+ translation[0]
+        t.transform.translation.y = random.randrange(-110, 110, 1) / 1000  #+ translation[1]
+        t.transform.translation.z = random.randrange(0, -300, -1) / 1000 #+ translation[2]
 
         # Create a quaternion from euler angles
         q_next_pose = self.quaternion_from_euler(0, 0, random.random() * 0.2 )
@@ -245,7 +245,8 @@ class RobotCommander(Node):
         # q_next_pose[0] = q_next_pose[3]
         # q_next_pose[3] = aux
         
-        q = self.multiply_quaternions(rotation, q_next_pose)
+        # q = self.multiply_quaternions(rotation, q_next_pose)
+        q = self.multiply_quaternions([0,0,0,1], q_next_pose)
 
         t.transform.rotation.w = q[0]
         t.transform.rotation.x = q[1]
@@ -259,10 +260,11 @@ class RobotCommander(Node):
         # Send the transformation
         self.tf_broadcaster.sendTransform(t)
 
-        self.lookup_transform('base', 'next_pose')
+        translation, rotation = self.lookup_transform('base', 'next_pose')
 
         # self.get_logger().info(self.rotation_vector_from_quaternion(t.transform.rotation))
-        self.send_urscript(t.transform.translation, t.transform.rotation)
+        if translation != -1 and rotation != -1:
+            self.send_urscript(t.transform.translation, t.transform.rotation)
 
     def send_urscript(self, translation, rotation):
         r, p, y = self.euler_from_quaternion(rotation)
@@ -270,18 +272,20 @@ class RobotCommander(Node):
         msg = String()
         msg.data = """def my_prog():\nset_digital_out(1, True)\nrv=rpy2rotvec([{},{},{}])\nmovej(p[{},{},{},rv[0],rv[1],rv[2]], a=1.2, v=0.25, r=0)\nset_digital_out(1, False)\nend""".format(r,p,y,translation.x,translation.y, translation.z)
         self.publisher_.publish(msg)
-        # self.get_logger().info('Publishing..')
+        self.get_logger().info(msg.data)
         # self.i += 1
 
     def lookup_transform(self, to_frame, from_frame):
         to_frame_rel = to_frame
         from_frame_rel = from_frame
+        self.get_logger().info(from_frame)
 
         try:
             t = self.tf_buffer.lookup_transform(
             to_frame_rel,
             from_frame_rel,
-            rclpy.time.Time())
+            rclpy.time.Time(),
+            timeout=rclpy.duration.Duration(seconds=1.0))
 
             if (self.initial_pose.translation.x == 0 or self.initial_pose.translation.y == 0 or self.initial_pose.translation.z == 0):   
                 self.get_logger().info('first pose empty')
@@ -292,7 +296,7 @@ class RobotCommander(Node):
             rotation_euler = self.euler_from_quaternion(t.transform.rotation)
             rot_vec = self.rotation_vector_from_quaternion(t.transform.rotation)
 
-            # self.get_logger().info('translation x: {} y: {} z: {}'.format(translation[0], translation[1], translation[2]))
+            self.get_logger().info('translation from {} x: {} y: {} z: {}'.format(from_frame, translation[0], translation[1], translation[2]))
             # self.get_logger().info('rotation q x: {} y: {} z: {} w: {}'.format(rotation[0], rotation[1], rotation[2], rotation[3]))
             # self.get_logger().info('rotation r: {} p: {} y: {}'.format(rotation_euler[0], rotation_euler[1], rotation_euler[2]))
             self.get_logger().info('rotation from {} r: {} p: {} y: {}'.format(from_frame, rot_vec[0], rot_vec[1], rot_vec[2]))
@@ -304,7 +308,7 @@ class RobotCommander(Node):
         except TransformException as ex:
             self.get_logger().info(
                 f'Could not transform {to_frame_rel} to {from_frame_rel}: {ex}')
-            return
+            return -1, -1
 
 def main(args=None):
     rclpy.init(args=args)
