@@ -1,4 +1,5 @@
 import cv2
+import os
 
 def capture_and_save_image(filename='captured_image.jpg'):
     # Initialize the webcam
@@ -23,4 +24,12 @@ def capture_and_save_image(filename='captured_image.jpg'):
     cap.release()
 
 # Call the function to capture and save the image
-capture_and_save_image('captured_image.jpg')
+
+directory = 'dataset2'
+parent = os.getcwd()
+
+path = os.path.join(parent,directory)
+os.mkdir(path)
+
+filename = 'captured_image.jpg'
+capture_and_save_image(os.path.join(path, filename))
