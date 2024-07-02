@@ -1,10 +1,12 @@
 import rclpy
+import rclpy.logging
 from rclpy.node import Node
 
 import random
 import math
 import numpy as np
 import os
+import yaml
 
 import cv2
 from cv_bridge import CvBridge
@@ -223,18 +225,31 @@ class RobotCommander(Node):
 
     def __init__(self):
         super().__init__('robot_commander')
-
+        
         self.setio = self.create_client(SetIO, '/io_and_status_controller/set_io')
         while not self.setio.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('service not available, waiting again...')
         self.req = SetIO.Request()
         self.send_request()
         self.start_time = rclpy.time.Time()
-        self.directory = 'test'
+        
+        self.declare_parameter('folder','folder')
+        self.directory = self.get_parameter('folder').get_parameter_value().string_value
+
+        self.declare_parameter('images_count',0)
+        self.image_count_max = self.get_parameter('images_count').get_parameter_value().integer_value
+        self.image_count = 0
 
         self.parent = os.getcwd()
         self.path = os.path.join(self.parent,self.directory)
-        os.mkdir(self.path)
+        try:
+            os.mkdir(self.path)
+        except FileExistsError:
+            pass
+
+        self.gt_path = os.path.join(self.path,'gt.yaml')
+        
+        self.get_logger().info('Dataset folder in {}'.format(self.path))
 
         self.tf_subscription = self.create_subscription(
             TFMessage,
@@ -268,6 +283,7 @@ class RobotCommander(Node):
 
         self.state = 0
         self.index = 0
+        self.gt = {}
 
         self.initial_pose = Transform()
         self.initial_matrix = np.eye(4)
@@ -295,9 +311,20 @@ class RobotCommander(Node):
         # translation, rotation = self.lookup_transform('base', 'tool0')
         translation, rotation = self.lookup_transform('base_link_inertia', 'wrist_3_link', True)
 
-        if not self.inMotion and self.state == 0:
-            self.state = 1
-            self.handle_next_pose()
+        if self.image_count_max > self.image_count:
+            if not self.inMotion and self.state == 0:
+                self.state = 1
+                self.handle_next_pose()
+        else:
+            #go back to initial pose
+            self.back_to_first_pose()
+            
+            #save yaml file with ground truth poses
+            with open(self.gt_path, 'w') as file:
+                yaml.dump(self.gt, file,  default_flow_style=False)
+
+            # and exit
+            raise SystemExit
 
         # if self.cv_image.any():
         #     ret = cv2.imwrite('tes.jpg', self.cv_image)
@@ -325,11 +352,8 @@ class RobotCommander(Node):
         self.inMotion = True if msg.digital_out_states[1].state == True else False
 
         if self.inMotion and not self.inMotionPrev:
-            filename = '{}.jpg'.format(self.index)
-            self.capture_and_save_image(self.cv_image, os.path.join(self.path, filename))
             # Rising edge
-            self.state = 0
-            self.index += 1
+            self.state = 2
 
         # if not self.inMotion and self.inMotionPrev:
             # Falling edge
@@ -344,6 +368,19 @@ class RobotCommander(Node):
         # self.get_logger().info('I heard: "%s"' % msg.height)
         self.cv_image = self.bridge.imgmsg_to_cv2(msg, 'bgra8')
         # self.color_filter(self.cv_image)
+        if self.state == 2:
+            T, R = self.lookup_transform('initial_pose', 'wrist_3_link')
+            # filename = '{},{},{},{},{},{},{}.png'.format(T[0],T[1],T[2],R[0],R[1],R[2],R[3])
+            self.gt.update({
+                self.image_count: {
+                    'translation':T,
+                    'rotation':R
+                }
+            })
+            filename = '{}.png'.format(self.image_count)
+            self.capture_and_save_image(self.cv_image, os.path.join(self.path, filename))
+            self.state = 0
+            self.image_count += 1
 
 
     def color_filter(self, frame):
@@ -420,8 +457,8 @@ class RobotCommander(Node):
         t.child_frame_id = 'next_pose'
 
         # We create the translation
-        t.transform.translation.x = random.randrange(-110, 110, 1) / 1000
-        t.transform.translation.y = random.randrange(-110, 110, 1) / 1000
+        t.transform.translation.x = random.randrange(-90, 90, 1) / 1000
+        t.transform.translation.y = random.randrange(-90, 90, 1) / 1000
         t.transform.translation.z = 0.0 #random.randrange(0, -300, -1) / 1000 #
 
         t_next_pose = [t.transform.translation.x,t.transform.translation.y,t.transform.translation.z]
@@ -429,7 +466,7 @@ class RobotCommander(Node):
 
         # Create a quaternion from euler angles
         r = Rotations()
-        r.from_euler(0, 0, random.random() * 0.2 )
+        r.from_euler(0, 0, random.randrange(-30, 30, 1) / 100 )
         q_next_pose = r.as_quat()
 
         next_pose_matrix = self.create_transformation_matrix(q_next_pose, t_next_pose)
@@ -456,6 +493,9 @@ class RobotCommander(Node):
         # if translation != -1 and rotation != -1:
         # self.send_urscript(t_next_pose, q_aux)
         self.send_urscript(base_to_next_matrix[:3,3], next_rotation)
+
+    def back_to_first_pose(self):
+        self.send_urscript(self.initial_matrix[:3,3], self.initial_rotvec)
 
     def send_urscript(self, translation, rotation):
         """
@@ -490,8 +530,19 @@ class RobotCommander(Node):
             #todo: put this somewhere else
             if (self.initial_pose.translation.x == 0 or self.initial_pose.translation.y == 0 or self.initial_pose.translation.z == 0):   
                 self.initial_pose = t.transform
+                r = Rotations()
+                r.from_object(t.transform.rotation)
+                self.initial_rotvec = r.as_rotvec()
                 self.initial_matrix = self.create_transformation_matrix(rotation, translation)
                 self.publish_first_pose()
+                self.gt.update({
+                    'initial_pose': {
+                        'translation':translation,
+                        'rotation':rotation
+                    }
+                })
+                # with open('./test.yaml', 'w') as file:
+                #     yaml.dump(self.gt, file,  default_flow_style=False)
             #
 
             if array:
@@ -523,7 +574,10 @@ def main(args=None):
 
     robot_commander = RobotCommander()
 
-    rclpy.spin(robot_commander)
+    try:
+        rclpy.spin(robot_commander)
+    except SystemExit:
+        rclpy.logging.get_logger("Quitting").info('done')
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
