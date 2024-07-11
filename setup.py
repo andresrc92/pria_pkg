@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'commander = pria.robot_commander:main'
+            'commander = pria.robot_commander:main',
+            'inference = pria.robot_inference:main',
         ],
     },
 )

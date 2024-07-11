@@ -1,0 +1,421 @@
+import rclpy
+import rclpy.logging
+from rclpy.node import Node
+
+import random
+import math
+import numpy as np
+import os
+import yaml
+
+import cv2
+from cv_bridge import CvBridge
+
+from std_msgs.msg import String
+from tf2_msgs.msg import TFMessage
+from ur_msgs.msg import IOStates
+from ur_msgs.srv import SetIO
+
+from pria.rotations import *
+from pria.sim_model import *
+
+from sensor_msgs.msg import Image
+from geometry_msgs.msg import Transform, TransformStamped, Quaternion
+
+from tf2_ros import TransformException, TransformBroadcaster
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
+
+
+class RobotInferencer(Node):
+
+    def __init__(self):
+        super().__init__('robot_inferencer')
+        
+        self.setio = self.create_client(SetIO, '/io_and_status_controller/set_io')
+        while not self.setio.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('service not available, waiting again...')
+        self.req = SetIO.Request()
+        self.send_request()
+        self.start_time = rclpy.time.Time()
+        
+        # self.declare_parameter('folder','folder')
+        # self.directory = self.get_parameter('folder').get_parameter_value().string_value
+
+        # self.declare_parameter('images_count',0)
+        # self.image_count_max = self.get_parameter('images_count').get_parameter_value().integer_value
+        # self.image_count = 0
+
+        self.image_height = 240
+        self.image_width = 320
+
+        # self.parent = os.getcwd()
+        # self.path = os.path.join(self.parent,self.directory)
+        # self.img_path = os.path.join(self.path, 'imgs')
+        # try:
+        #     os.mkdir(self.path)
+        # except FileExistsError:
+        #     pass
+
+        # try:
+        #     os.mkdir(self.img_path)
+        # except FileExistsError:
+        #     pass
+
+        # self.gt_path = os.path.join(self.path,'gt.yaml')
+        
+        # self.get_logger().info('Dataset folder in {}'.format(self.path))
+
+        self.tf_subscription = self.create_subscription(
+            TFMessage,
+            'tf',
+            self.tf_listener_callback,
+            10)
+        self.tf_subscription  # prevent unused variable warning
+
+        self.io_subscription = self.create_subscription(
+            IOStates,
+            '/io_and_status_controller/io_states',
+            self.io_listener_callback,
+            10)
+        self.io_subscription  # prevent unused variable warning
+
+        self.rgb_subscription = self.create_subscription(
+            Image,
+            '/rgb',
+            self.rgb_listener_callback,
+            10)
+        self.rgb_subscription  # prevent unused variable warning
+
+        self.bridge = CvBridge()
+        # self.cap = cv2.VideoCapture(0)
+
+        self.publisher_ = self.create_publisher(String, '/urscript_interface/script_command', 10)
+        timer_period = 1 # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.i = 0
+        self.inMotion = False
+        self.inMotionPrev = False
+
+        self.state = 0
+        self.index = 0
+        self.gt = {}
+
+        self.initial_pose = Transform()
+        self.initial_matrix = np.eye(4)
+
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
+        # Initialize the transform broadcaster
+        self.tf_broadcaster = TransformBroadcaster(self)
+        self.tf_static_broadcaster = StaticTransformBroadcaster(self)
+
+        self.trainer = Trainer('./cube_3_dof_v2')
+        self.trainer.open_model()
+        self.trainer.open_normalization()
+
+    def send_request(self):
+        """
+        This function uses the SetIO service to put DO1 to Low before starting
+        """
+        self.req.fun = 1 # FUN_SET_DIGITAL_OUT
+        self.req.pin = 1
+        self.req.state = 0.0
+        self.future = self.setio.call_async(self.req)
+
+    def timer_callback(self):
+        """
+        This is called every ${timer_period} seconds
+        """
+        return
+
+
+    def tf_listener_callback(self, msg):
+        """
+        This function listens to tf
+        """
+        total_transforms = len(msg.transforms)
+        for transform in msg.transforms:
+            # self.get_logger().info('I heard: "%s"' % transform.header.frame_id)
+            break
+
+    def io_listener_callback(self, msg):
+        """
+        This function checks DO1 Falling and Rising edges
+        """
+
+        self.inMotion = True if msg.digital_out_states[1].state == True else False
+
+        if self.inMotion and not self.inMotionPrev:
+            # Rising edge
+            self.state = 2
+
+        # if not self.inMotion and self.inMotionPrev:
+            # Falling edge
+
+        self.inMotionPrev = self.inMotion
+        # self.get_logger().info('In motion "%s"' % self.inMotion)
+
+    def rgb_listener_callback(self, msg):
+        """
+        This function listens to rgb topic
+        """
+        # self.get_logger().info('I heard: "%s"' % msg.height)
+        image = self.bridge.imgmsg_to_cv2(msg, 'bgra8')
+        # self.color_filter(image)
+        pose = self.trainer.infere_from_image(image)
+        self.handle_predicted_pose(pose)
+
+
+
+
+
+    def color_filter(self, frame):
+        """
+        This function is a test of blue filtering with OpenCV
+        """
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV) 
+      
+        # Threshold of blue in HSV space 
+        lower_blue = np.array([60, 35, 140]) 
+        upper_blue = np.array([180, 255, 255]) 
+    
+        # preparing the mask to overlay 
+        mask = cv2.inRange(hsv, lower_blue, upper_blue) 
+        
+        # The black region in the mask has the value of 0, 
+        # so when multiplied with original image removes all non-blue regions 
+        result = cv2.bitwise_and(frame, frame, mask = mask) 
+    
+        cv2.imshow('frame', frame) 
+        cv2.imshow('mask', mask) 
+        cv2.imshow('result', result)
+        cv2.waitKey(1)
+
+
+
+    
+    def capture_and_save_image(self, frame, filename):
+        """
+        Save the frame as a JPEG file
+        Takes arguments (frame=self.cv_image, filename)
+        """
+        cv2.imwrite(filename, frame)
+
+    def create_transformation_matrix(self, quaternion, translation):
+        """
+        Create a transformation matrix from a quaternion and translation vector.
+        
+        Args:
+        quaternion (list or np.ndarray): The quaternion [x, y, z, w]
+        translation (list or np.ndarray): The translation vector [tx, ty, tz]
+
+        Returns:
+        np.ndarray: The 4x4 transformation matrix
+        """
+        x,y,z,w = quaternion
+        r = Rotations()
+        r.from_quat(x,y,z,w)
+        R = r.as_matrix()
+        T = np.eye(4)
+        T[:3, :3] = R
+        T[:3, 3] = translation
+        return T
+    
+    def publish_first_pose(self):
+        """
+        Publish a static frame with respect to the robot base of the first pose
+        """
+        t = TransformStamped()
+
+        # Read message content and assign it to
+        # corresponding tf variables
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = 'base_link_inertia'
+        t.child_frame_id = 'initial_pose'
+        t.transform = self.initial_pose
+
+        self.tf_static_broadcaster.sendTransform(t)
+
+    def handle_predicted_pose(self, prediction,):
+        t_current, q_current = self.lookup_transform('base_link_inertia', 'wrist_3_link', True)
+        
+        t_next_pose = -1 * prediction[:3]
+        t_next_pose[2] = 0.0
+
+        q_next_pose = prediction[3:]
+        q_next_pose[3] *= -1
+
+        # q_next_pose = [0,0,0,1]
+
+        self.publish_tf(np.concatenate((t_next_pose, q_next_pose)), 'wrist_3_link', 'predicted_pose')
+        
+        next_pose_matrix = self.create_transformation_matrix(q_next_pose,t_next_pose)
+        current_pose_matrix = self.create_transformation_matrix(q_current,t_current)
+
+        base_to_next_matrix = np.dot(current_pose_matrix,next_pose_matrix)
+
+        r = Rotations()
+        r.from_matrix(base_to_next_matrix[0:3,0:3])
+        q_ = r.as_quat()
+        t_ = base_to_next_matrix[:3,3]
+        prediction_ = np.concatenate((t_, q_))
+
+        self.publish_tf(prediction_, 'base_link_inertia', 'robot_command')
+
+        
+        dist = np.power(prediction[:3],2)
+        dist = np.sum(dist)
+
+        # If robot is close enough, stop sending commands
+        if dist > 0.0001:
+            self.send_urscript(t_, r.as_rotvec())
+
+    def publish_tf(self, pose, head, child):
+        t = TransformStamped()
+
+        # Read message content and assign it to
+        # corresponding tf variables
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = head
+        t.child_frame_id = child       
+        
+        # We create the translation
+        t.transform.translation.x = pose[0]
+        t.transform.translation.y = pose[1]
+        t.transform.translation.z = pose[2]
+
+        t.transform.rotation.x = pose[3]
+        t.transform.rotation.y = pose[4]
+        t.transform.rotation.z = pose[5]
+        t.transform.rotation.w = pose[6]
+
+        # Send the transformation
+        self.tf_broadcaster.sendTransform(t)
+
+
+    def handle_next_pose(self):
+        t = TransformStamped()
+
+        # Read message content and assign it to
+        # corresponding tf variables
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = 'initial_pose'
+        t.child_frame_id = 'next_pose'
+
+        # We create the translation
+        t.transform.translation.x = random.randrange(-90, 90, 1) / 1000
+        t.transform.translation.y = random.randrange(-90, 90, 1) / 1000
+        t.transform.translation.z = 0.0 #random.randrange(0, -300, -1) / 1000 #
+
+        t_next_pose = [t.transform.translation.x,t.transform.translation.y,t.transform.translation.z]
+        # self.get_logger().info('offset transform {} {} {}'.format(t_next_pose[0],t_next_pose[1],t_next_pose[2]))
+
+        # Create a quaternion from euler angles
+        r = Rotations()
+        r.from_euler(0, 0, random.randrange(-30, 30, 1) / 100 )
+        q_next_pose = r.as_quat()
+
+        next_pose_matrix = self.create_transformation_matrix(q_next_pose, t_next_pose)
+        # self.print_transformation_matrix(next_pose_matrix)
+
+        base_to_next_matrix = np.dot(self.initial_matrix,next_pose_matrix)
+        # self.print_transformation_matrix(base_to_next_matrix)
+        
+        q = q_next_pose
+
+        t.transform.rotation.x = q[0]
+        t.transform.rotation.y = q[1]
+        t.transform.rotation.z = q[2]
+        t.transform.rotation.w = q[3]
+
+        # Send the transformation
+        self.tf_broadcaster.sendTransform(t)
+
+        r = Rotations()
+        r.from_matrix(base_to_next_matrix[0:3,0:3])
+        next_rotation = r.as_rotvec()
+
+        # self.get_logger().info(t_next_pose)
+        # if translation != -1 and rotation != -1:
+        # self.send_urscript(t_next_pose, q_aux)
+        self.send_urscript(base_to_next_matrix[:3,3], next_rotation)
+
+    def back_to_first_pose(self):
+        self.send_urscript(self.initial_matrix[:3,3], self.initial_rotvec)
+
+    def send_urscript(self, translation, rotation):
+        """
+        Using the primary interface to send URScripts programs to move the robot
+        """
+
+        msg = String()
+        # msg.data = """def my_prog():\nset_digital_out(1, True)\nrv=rpy2rotvec([{},{},{}])\nmovej(p[{},{},{},rv[0],rv[1],rv[2]], a=1.2, v=0.25, r=0)\nset_digital_out(1, False)\nend""".format(r,p,y,translation.x,translation.y, translation.z)
+        # msg.data = """def my_prog():\nset_digital_out(1, True)\nrv=rpy2rotvec([{},{},{}])\nmovej(p[{},{},{},rv[0],rv[1],rv[2]], a=1.2, v=0.25, r=0)\nset_digital_out(1, False)\nend""".format(r,p,y,translation[0],translation[1], translation[2])
+        msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=1.2, v=0.25, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
+        self.publisher_.publish(msg)
+        # self.get_logger().info(msg.data)
+        # self.i += 1
+
+    def lookup_transform(self, to_frame_rel, from_frame_rel,array=True):
+        """
+        Search for transformations between two specific frames.
+        
+        If array is True, it returns a translation and rotation array (w = q[3])
+        """
+
+        try:
+            t = self.tf_buffer.lookup_transform(
+            to_frame_rel,
+            from_frame_rel,
+            rclpy.time.Time(),
+            timeout=rclpy.duration.Duration(seconds=1.0))
+
+            translation = [t.transform.translation.x, t.transform.translation.y,t.transform.translation.z]
+            rotation = [t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w]
+
+            if array:
+                return translation, rotation
+            else:
+                return t.transform.translation, t.transform.rotation
+
+        except TransformException as ex:
+            self.get_logger().info(
+                f'Could not transform {to_frame_rel} to {from_frame_rel}: {ex}')
+            return [0,0,0],[0,0,0,1]
+    
+    def print_transformation_matrix(self, H):
+        a, b, c, d = H[0,:]
+        e, f, g, h = H[1,:]
+        i, j, k, l = H[2,:]
+        m, n, o, p = H[3,:]
+        self.get_logger().info('transformation matrix: \n [[{},{},{},{}],\n[{},{},{},{}],\n[{},{},{},{}],\n[{},{},{},{}]]'.format(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p))
+
+    
+    def print_rotation_matrix(self, R):
+        a, b, c = R[0,:]
+        d, e, f = R[1,:]
+        g, h, i = R[2,:]
+        self.get_logger().info('rotation matrix: \n [[{},{},{}],\n[{},{},{}],\n[{},{},{}]]'.format(a,b,c,d,e,f,g,h,i))
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    robot_inferencer = RobotInferencer()
+
+    try:
+        rclpy.spin(robot_inferencer)
+    except SystemExit:
+        rclpy.logging.get_logger("Quitting").info('done')
+
+    # Destroy the node explicitly
+    # (optional - otherwise it will be done automatically
+    # when the garbage collector destroys the node object)
+    robot_inferencer.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

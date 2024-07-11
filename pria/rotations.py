@@ -14,7 +14,7 @@ class Rotations ():
         self.z = z
         self.w = w
 
-        print(self.x, self.y, self.z, self.w)
+        # print(self.x, self.y, self.z, self.w)
 
     def from_euler(self,x,y,z):
         """
@@ -176,6 +176,24 @@ class Rotations ():
             [2*self.x*self.z - 2*self.y*self.w, 2*self.y*self.z + 2*self.x*self.w, 2*(self.w**2 + self.z**2)-1]
         ])
         return R
+    
+    def multiply_quaternions(self, q1, q2):
+        """
+        Quaternions multiplication.
+        
+        Quaternions must be arrays with the 'w' value at the last index position
+        q[0] = q.x, q[1] = q.y, q[2] = q.z, q[3] = q.w
+
+        """
+        w1, x1, y1, z1 = q1[3], q1[0], q1[1], q1[2]
+        w2, x2, y2, z2 = q2[3], q2[0], q2[1], q2[2]
+
+        w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+        x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+        y = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
+        z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+
+        return [x, y, z, w]
 
 
 
