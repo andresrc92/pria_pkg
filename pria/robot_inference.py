@@ -112,7 +112,8 @@ class RobotInferencer(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
 
-        self.trainer = Trainer('./cube_3_dof_v2')
+        self.trainer = Trainer('./cube_4_dof_v3', 2, 59)
+        self.trainer.read_meta_data()
         self.trainer.open_model()
         self.trainer.open_normalization()
 
@@ -165,12 +166,8 @@ class RobotInferencer(Node):
         # self.get_logger().info('I heard: "%s"' % msg.height)
         image = self.bridge.imgmsg_to_cv2(msg, 'bgra8')
         # self.color_filter(image)
-        pose = self.trainer.infere_from_image(image)
+        pose = self.trainer.infer_from_image(image)
         self.handle_predicted_pose(pose)
-
-
-
-
 
     def color_filter(self, frame):
         """
@@ -243,7 +240,7 @@ class RobotInferencer(Node):
         t_current, q_current = self.lookup_transform('base_link_inertia', 'wrist_3_link', True)
         
         t_next_pose = -1 * prediction[:3]
-        t_next_pose[2] = 0.0
+        # t_next_pose[2] = 0.0
 
         q_next_pose = prediction[3:]
         q_next_pose[3] *= -1
@@ -270,8 +267,9 @@ class RobotInferencer(Node):
         dist = np.sum(dist)
 
         # If robot is close enough, stop sending commands
-        if dist > 0.0001:
-            self.send_urscript(t_, r.as_rotvec())
+        # print(prediction[:3])
+        # if dist > 0.0001:
+            # self.send_urscript(t_, r.as_rotvec())
 
     def publish_tf(self, pose, head, child):
         t = TransformStamped()

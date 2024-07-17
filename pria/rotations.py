@@ -194,6 +194,21 @@ class Rotations ():
         z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
 
         return [x, y, z, w]
+    
+    def print_transformation_matrix(self, H):
+        a, b, c, d = H[0,:]
+        e, f, g, h = H[1,:]
+        i, j, k, l = H[2,:]
+        m, n, o, p = H[3,:]
+        self.get_logger().info('transformation matrix: \n [[{},{},{},{}],\n[{},{},{},{}],\n[{},{},{},{}],\n[{},{},{},{}]]'.format(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p))
+
+    
+    def print_rotation_matrix(self, R):
+        a, b, c = R[0,:]
+        d, e, f = R[1,:]
+        g, h, i = R[2,:]
+        self.get_logger().info('rotation matrix: \n [[{},{},{}],\n[{},{},{}],\n[{},{},{}]]'.format(a,b,c,d,e,f,g,h,i))
+
 
 
 
