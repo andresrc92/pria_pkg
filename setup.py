@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             'commander = pria.robot_commander:main',
             'inference = pria.robot_inference:main',
+            'usb_camera = pria.usb_camera:main',
         ],
     },
 )

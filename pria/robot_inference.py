@@ -97,6 +97,7 @@ class RobotInferencer(Node):
         self.i = 0
         self.inMotion = False
         self.inMotionPrev = False
+        self.homed = False
 
         self.state = 0
         self.index = 0
@@ -112,9 +113,25 @@ class RobotInferencer(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
 
+<<<<<<< Updated upstream
         self.trainer = Trainer('./cube_3_dof_v2')
+=======
+        # self.trainer = Trainer("vibrator_no_twist", 2, 100) # el que anda
+        # self.trainer = Trainer("extrusion", 2, 100) # el que anda
+        self.trainer = Trainer("cup_drill_cone_twist", 2, 100) # el que anda
+        self.z_end = self.trainer.read_meta_data()
+>>>>>>> Stashed changes
         self.trainer.open_model()
-        self.trainer.open_normalization()
+        # self.trainer.open_normalization()
+        self.trainer.open_batch_normalization()
+
+        self.flat_model = Trainer("cup_drill_twist", 2, 100)
+        self.flat_model.open_model()
+        self.flat_model.open_batch_normalization()
+
+        print("Initial height ", self.z_end)
+
+        self.send_home()
 
     def send_request(self):
         """
@@ -148,11 +165,12 @@ class RobotInferencer(Node):
 
         self.inMotion = True if msg.digital_out_states[1].state == True else False
 
-        if self.inMotion and not self.inMotionPrev:
+        # if self.inMotion and not self.inMotionPrev:
             # Rising edge
-            self.state = 2
+            # self.state = 2
 
-        # if not self.inMotion and self.inMotionPrev:
+        if not self.inMotion and self.inMotionPrev:
+            self.homed = True
             # Falling edge
 
         self.inMotionPrev = self.inMotion
@@ -165,8 +183,23 @@ class RobotInferencer(Node):
         # self.get_logger().info('I heard: "%s"' % msg.height)
         image = self.bridge.imgmsg_to_cv2(msg, 'bgra8')
         # self.color_filter(image)
+<<<<<<< Updated upstream
         pose = self.trainer.infere_from_image(image)
         self.handle_predicted_pose(pose)
+=======
+        if self.homed and not self.inMotion:
+            if self.state == 0:
+                pose = self.trainer.infer_from_image(image)
+                self.handle_predicted_pose(pose)
+            elif self.state == 1:
+                pose = self.flat_model.infer_from_image(image)
+                self.handle_predicted_pose(pose)
+            elif self.state == 2 and not self.inMotion:
+                self.state = 3
+                self.send_grip()
+
+            
+>>>>>>> Stashed changes
 
 
 
@@ -242,15 +275,24 @@ class RobotInferencer(Node):
     def handle_predicted_pose(self, prediction,):
         t_current, q_current = self.lookup_transform('base_link_inertia', 'wrist_3_link', True)
         
+<<<<<<< Updated upstream
         t_next_pose = -1 * prediction[:3]
         t_next_pose[2] = 0.0
+=======
+        t_next_pose = 1 * prediction[:3]
+        if self.state == 1:
+            # t_next_pose = -1 * prediction[:3] #only for vibrator
+            t_next_pose[2] = 0
+        # t_next_pose[2] = 0.0
+        # print("Trans_pred ", t_next_pose)
+>>>>>>> Stashed changes
 
         q_next_pose = prediction[3:]
-        q_next_pose[3] *= -1
+        # q_next_pose[3] *= -1
 
         # q_next_pose = [0,0,0,1]
 
-        self.publish_tf(np.concatenate((t_next_pose, q_next_pose)), 'wrist_3_link', 'predicted_pose')
+        # self.publish_tf(np.concatenate((t_next_pose, q_next_pose)), 'wrist_3_link', 'predicted_pose')
         
         next_pose_matrix = self.create_transformation_matrix(q_next_pose,t_next_pose)
         current_pose_matrix = self.create_transformation_matrix(q_current,t_current)
@@ -265,13 +307,40 @@ class RobotInferencer(Node):
 
         self.publish_tf(prediction_, 'base_link_inertia', 'robot_command')
 
-        
         dist = np.power(prediction[:3],2)
         dist = np.sum(dist)
 
+        # r.from_quat(q_next_pose[0],q_next_pose[1],q_next_pose[2],q_next_pose[3])
+
+        # r.from_quat(0,0,0,1)
+
         # If robot is close enough, stop sending commands
+<<<<<<< Updated upstream
         if dist > 0.0001:
             self.send_urscript(t_, r.as_rotvec())
+=======
+        # print(prediction[:3])
+        # print(dist)
+        if not self.inMotion:
+
+            print("State ", self.state)
+            if self.state == 0:
+                print(dist, t_[2])
+                if dist > 0.0001 and t_[2] > 0.35:
+                    # if t_[2] > (self.z_end - 0.05):
+                    self.send_urscript(t_, r.as_rotvec())
+                else:
+                    self.state = 1
+
+            elif self.state == 1:
+                if dist > 0.0001:
+                    self.send_urscript(t_, r.as_rotvec())
+                else:
+                    self.state = 2
+            
+        # else:
+        #     raise SystemExit
+>>>>>>> Stashed changes
 
     def publish_tf(self, pose, head, child):
         t = TransformStamped()
@@ -354,7 +423,38 @@ class RobotInferencer(Node):
         msg = String()
         # msg.data = """def my_prog():\nset_digital_out(1, True)\nrv=rpy2rotvec([{},{},{}])\nmovej(p[{},{},{},rv[0],rv[1],rv[2]], a=1.2, v=0.25, r=0)\nset_digital_out(1, False)\nend""".format(r,p,y,translation.x,translation.y, translation.z)
         # msg.data = """def my_prog():\nset_digital_out(1, True)\nrv=rpy2rotvec([{},{},{}])\nmovej(p[{},{},{},rv[0],rv[1],rv[2]], a=1.2, v=0.25, r=0)\nset_digital_out(1, False)\nend""".format(r,p,y,translation[0],translation[1], translation[2])
-        msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=1.2, v=0.25, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
+        msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=0.8, v=0.1, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
+        self.publisher_.publish(msg)
+        # self.get_logger().info(msg.data)
+        # self.i += 1
+
+    def send_grip(self):
+        msg = String()
+
+        with open('grip.script', 'r') as f:
+            msg.data = f.read()
+
+        self.publisher_.publish(msg)
+
+    def send_home(self):
+        msg = String()
+
+        with open('iniyial.script', 'r') as f:
+            msg.data = f.read()
+
+        self.publisher_.publish(msg)
+
+
+    def send_urscript_tool(self, translation, rotation):
+        """
+        Using the primary interface to send URScripts programs to move the robot
+        """
+
+        msg = String()
+        # msg.data = """def my_prog():\nset_digital_out(1, True)\nrv=rpy2rotvec([{},{},{}])\nmovej(p[{},{},{},rv[0],rv[1],rv[2]], a=1.2, v=0.25, r=0)\nset_digital_out(1, False)\nend""".format(r,p,y,translation.x,translation.y, translation.z)
+        # msg.data = """def my_prog():\nset_digital_out(1, True)\nrv=rpy2rotvec([{},{},{}])\nmovej(p[{},{},{},rv[0],rv[1],rv[2]], a=1.2, v=0.25, r=0)\nset_digital_out(1, False)\nend""".format(r,p,y,translation[0],translation[1], translation[2])
+        # msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=0.8, v=0.1, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
+        msg.data = """def my_prog():\nset_digital_out(1, True)\nspeedl([{},{},{},{},{},{}], a=0.2, t=1)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
         self.publisher_.publish(msg)
         # self.get_logger().info(msg.data)
         # self.i += 1

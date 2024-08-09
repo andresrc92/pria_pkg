@@ -16,6 +16,17 @@ class Rotations ():
 
         # print(self.x, self.y, self.z, self.w)
 
+    def from_array(self,arr):
+        """
+        Defines a rotation from Quaternion taking W as last argument
+        """
+        self.x = arr[0]
+        self.y = arr[1]
+        self.z = arr[2]
+        self.w = arr[3]
+
+        # print(self.x, self.y, self.z, self.w)
+
     def from_euler(self,x,y,z):
         """
         Defines a rotation from Euler RPY angles
@@ -125,7 +136,7 @@ class Rotations ():
     
     def as_euler(self):
         """
-        Returns the rotation as Euler angles
+        Returns the rotation as Euler angles in radians
         with order [roll, pitch, yaw]
         """
         sinr_cosp = 2 * (self.w * self.x + self.y * self.z)
@@ -139,7 +150,7 @@ class Rotations ():
         cosy_cosp = 1 - 2 * (self.y * self.y + self.z * self.z)
         yaw = np.arctan2(siny_cosp, cosy_cosp)
 
-        return roll, pitch, yaw
+        return [roll, pitch, yaw]
     
     def as_rotvec(self):
         """
