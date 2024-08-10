@@ -36,11 +36,7 @@ class Se3Ish(nn.Module):
     self.rot_out = nn.Sequential(nn.Linear(512,self.rot_dim),nn.Tanh())
 
     self.loss = nn.MSELoss(reduction='none')
-<<<<<<< HEAD
     self.loss_coefficient = 0.01
-=======
-
->>>>>>> origin/main
 
   def forward(self, B):
     batch_size = B.shape[0]
@@ -99,7 +95,6 @@ class Se3Ish(nn.Module):
   #   output['trans'] = trans_loss
   #   output['rot'] = rot_loss
 
-<<<<<<< HEAD
   #   return output
   def compute_loss(self, pred, gt):
       translation_loss = torch.nn.MSELoss(reduction='none')(pred[:,:3], gt[:,:3]).mean()
@@ -107,6 +102,3 @@ class Se3Ish(nn.Module):
       loss = translation_loss + self.loss_coefficient * rotation_loss
       print(loss.shape)
       return loss
-=======
-  #   return output
->>>>>>> origin/main
