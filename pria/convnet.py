@@ -23,7 +23,7 @@ class ConvNet(nn.Module):
     self.pool3 = nn.MaxPool2d(2, 2)
     self.lin1 = nn.Linear(21120, 7)
 
-    self.loss = nn.MSELoss(reduction='none')
+    self.loss_coefficient = 0.01
 
   def forward(self, x):
     # print(x.shape)
@@ -55,3 +55,9 @@ class ConvNet(nn.Module):
     x = self.lin1(x)
     # print(x.shape)
     return x
+  
+  def compute_loss(self, pred, gt):
+    translation_loss = nn.MSELoss(reduction='none')(pred[:,:3], gt[:,:3]).mean()
+    rotation_loss = nn.MSELoss(reduction='none')(pred[:,3:], gt[:,3:]).mean()
+    loss = translation_loss + self.loss_coefficient * rotation_loss
+    return loss

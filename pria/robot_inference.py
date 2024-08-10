@@ -113,14 +113,10 @@ class RobotInferencer(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
 
-<<<<<<< Updated upstream
-        self.trainer = Trainer('./cube_3_dof_v2')
-=======
         # self.trainer = Trainer("vibrator_no_twist", 2, 100) # el que anda
         # self.trainer = Trainer("extrusion", 2, 100) # el que anda
         self.trainer = Trainer("cup_drill_cone_twist", 2, 100) # el que anda
         self.z_end = self.trainer.read_meta_data()
->>>>>>> Stashed changes
         self.trainer.open_model()
         # self.trainer.open_normalization()
         self.trainer.open_batch_normalization()
@@ -183,10 +179,9 @@ class RobotInferencer(Node):
         # self.get_logger().info('I heard: "%s"' % msg.height)
         image = self.bridge.imgmsg_to_cv2(msg, 'bgra8')
         # self.color_filter(image)
-<<<<<<< Updated upstream
-        pose = self.trainer.infere_from_image(image)
-        self.handle_predicted_pose(pose)
-=======
+
+        pose = self.trainer.infer_from_image(image)
+
         if self.homed and not self.inMotion:
             if self.state == 0:
                 pose = self.trainer.infer_from_image(image)
@@ -199,11 +194,6 @@ class RobotInferencer(Node):
                 self.send_grip()
 
             
->>>>>>> Stashed changes
-
-
-
-
 
     def color_filter(self, frame):
         """
@@ -275,17 +265,12 @@ class RobotInferencer(Node):
     def handle_predicted_pose(self, prediction,):
         t_current, q_current = self.lookup_transform('base_link_inertia', 'wrist_3_link', True)
         
-<<<<<<< Updated upstream
-        t_next_pose = -1 * prediction[:3]
-        t_next_pose[2] = 0.0
-=======
         t_next_pose = 1 * prediction[:3]
         if self.state == 1:
             # t_next_pose = -1 * prediction[:3] #only for vibrator
             t_next_pose[2] = 0
         # t_next_pose[2] = 0.0
         # print("Trans_pred ", t_next_pose)
->>>>>>> Stashed changes
 
         q_next_pose = prediction[3:]
         # q_next_pose[3] *= -1
@@ -315,10 +300,7 @@ class RobotInferencer(Node):
         # r.from_quat(0,0,0,1)
 
         # If robot is close enough, stop sending commands
-<<<<<<< Updated upstream
-        if dist > 0.0001:
-            self.send_urscript(t_, r.as_rotvec())
-=======
+
         # print(prediction[:3])
         # print(dist)
         if not self.inMotion:
@@ -340,7 +322,6 @@ class RobotInferencer(Node):
             
         # else:
         #     raise SystemExit
->>>>>>> Stashed changes
 
     def publish_tf(self, pose, head, child):
         t = TransformStamped()

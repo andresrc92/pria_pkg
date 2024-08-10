@@ -7,11 +7,8 @@ import math
 import numpy as np
 import os
 import yaml
-<<<<<<< Updated upstream
-=======
 import time
 from datetime import datetime
->>>>>>> Stashed changes
 
 import cv2
 from cv_bridge import CvBridge
@@ -52,25 +49,38 @@ class RobotCommander(Node):
         self.image_count_max = self.get_parameter('images_count').get_parameter_value().integer_value
         self.image_count = 0
 
+        self.points = np.empty((self.image_count_max,7),dtype=float)
+
         self.image_height = 240
         self.image_width = 320
 
-        self.parent = os.getcwd()
-        self.path = os.path.join(self.parent,self.directory)
-        self.img_path = os.path.join(self.path, 'imgs')
-        try:
-            os.mkdir(self.path)
-        except FileExistsError:
-            pass
+        self.param_exist = True
+        if self.directory == 'folder':
+            print("Folder parameter not set.")
+            self.param_exist = False
 
-        try:
-            os.mkdir(self.img_path)
-        except FileExistsError:
-            pass
+        if self.image_count_max < 1:
+            print("Image count not set.")
+            self.param_exist = False
 
-        self.gt_path = os.path.join(self.path,'gt.yaml')
-        
-        self.get_logger().info('Dataset folder in {}'.format(self.path))
+        if self.param_exist:
+            self.parent = os.getcwd()
+            self.path = os.path.join(self.parent,self.directory)
+            self.img_path = os.path.join(self.path, 'imgs')
+
+            try:
+                os.mkdir(self.path)
+            except FileExistsError:
+                pass
+
+            try:
+                os.mkdir(self.img_path)
+            except FileExistsError:
+                pass
+
+            self.gt_path = os.path.join(self.path,'gt.yaml')
+            
+            self.get_logger().info('Dataset folder in {}'.format(self.path))
 
         # self.tf_subscription = self.create_subscription(
         #     TFMessage,
@@ -93,14 +103,11 @@ class RobotCommander(Node):
             10)
         self.rgb_subscription  # prevent unused variable warning
         self.bridge = CvBridge()
-        # self.cap = cv2.VideoCapture(0)
-
-<<<<<<< Updated upstream
+       
         self.publisher_ = self.create_publisher(String, '/urscript_interface/script_command', 10)
-        timer_period = 1 # seconds
-=======
-        timer_period = 1.01 # seconds
->>>>>>> Stashed changes
+
+        timer_period = 0.01 # seconds
+
         self.timer = self.create_timer(timer_period, self.timer_callback)
         self.i = 0
         self.inMotion = False
@@ -120,16 +127,12 @@ class RobotCommander(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
 
-<<<<<<< Updated upstream
-=======
         # while self.publish_first_pose() < 0:
         #     print("Waiting for transform.")
         self.once = True
         # self.generate_close_points(60)
         self.generate_cone_points(80)
 
-
->>>>>>> Stashed changes
     def send_request(self):
         """
         This function uses the SetIO service to put DO1 to Low before starting
@@ -143,35 +146,6 @@ class RobotCommander(Node):
         """
         This is called every ${timer_period} seconds
         """
-<<<<<<< Updated upstream
-        # translation, rotation = self.lookup_transform('base', 'tool0')
-        translation, rotation = self.lookup_transform('base_link_inertia', 'wrist_3_link', True)
-
-        if self.image_count_max > self.image_count:
-            if not self.inMotion and self.state == 0:
-                self.state = 1
-                self.handle_next_pose()
-        else:
-            #go back to initial pose
-            self.back_to_first_pose()
-            
-            #save yaml file with ground truth poses
-            with open(self.gt_path, 'w') as file:
-                yaml.dump(self.gt, file,  default_flow_style=False)
-
-            # and exit
-            raise SystemExit
-
-        # if self.cv_image.any():
-        #     ret = cv2.imwrite('tes.jpg', self.cv_image)
-        #     self.get_logger().info('Saving image %s' % ret)
-
-        # if not self.inMotion:
-        #     self.handle_next_pose()
-        #     translation, rotation = self.lookup_transform('next_pose', 'base')
-        #     self.send_urscript(translation, rotation)
-=======
-
         if self.once:
             if self.publish_first_pose() == 0:
                 self.once = False
@@ -218,7 +192,6 @@ class RobotCommander(Node):
         
         # else:
         #     print("doing nothing")
->>>>>>> Stashed changes
 
     def tf_listener_callback(self, msg):
         """
@@ -253,30 +226,7 @@ class RobotCommander(Node):
         """
         # self.get_logger().info('I heard: "%s"' % msg.height)
         image = self.bridge.imgmsg_to_cv2(msg, 'bgra8')
-        # self.color_filter(self.cv_image)
-<<<<<<< Updated upstream
-        if self.state == 2:
-            T, Q = self.lookup_transform('initial_pose', 'wrist_3_link')
-            # filename = '{},{},{},{},{},{},{}.png'.format(T[0],T[1],T[2],R[0],R[1],R[2],R[3])
-            r = Rotations()
-            r.from_quat(Q[0],Q[1],Q[2],Q[3])
-            R = r.as_matrix()
-
-            self.gt.update({
-                self.image_count: {
-                    'translation':T,
-                    'rotation':np.reshape(R, -1).tolist()
-                }
-            })
-            
-            filename = '{}.png'.format(self.image_count)
-
-            resized = cv2.resize(image, (self.image_width, self.image_height))
-            self.capture_and_save_image(resized, os.path.join(self.img_path, filename))
-            self.state = 0
-            self.image_count += 1
-=======
-        
+        # self.color_filter(self.cv_image)    
         img_time = msg.header.stamp
 
         if self.state == 2 or (self.state == 1 and self.image_count == 0) or True:
@@ -312,8 +262,6 @@ class RobotCommander(Node):
             with open(self.gt_path, 'w') as file:
                 yaml.dump(self.gt, file, default_flow_style=False)            
             raise SystemExit
-
->>>>>>> Stashed changes
 
 
     def color_filter(self, frame):
@@ -356,7 +304,7 @@ class RobotCommander(Node):
         Returns:
         np.ndarray: The 4x4 transformation matrix
         """
-        x,y,z,w = quaternion
+        x, y, z, w = quaternion
         r = Rotations()
         r.from_quat(x,y,z,w)
         R = r.as_matrix()
@@ -369,9 +317,6 @@ class RobotCommander(Node):
         """
         Publish a static frame with respect to the robot base of the first pose
         """
-<<<<<<< Updated upstream
-        t = TransformStamped()
-=======
         translation, rotation = self.lookup_transform_('base_link_inertia', 'wrist_3_link')
         # translation, rotation = self.lookup_transform_('base_link_inertia', 'wrist_3_link_sim')
 
@@ -402,7 +347,7 @@ class RobotCommander(Node):
 
         return 0
 
-    def generate_points(self, z_far=10,z_step=1,r_max=80,r_min=80):
+    def generate_points(self, z_far=10,z_step=1,r_max=100,r_min=100):
 
         if self.image_count_max < 1:
             print("Image count not set")
@@ -426,41 +371,29 @@ class RobotCommander(Node):
         for i in range(z_step):
 
             # print(int(images_per_step[0]))
->>>>>>> Stashed changes
 
-        # Read message content and assign it to
-        # corresponding tf variables
-        t.header.stamp = self.get_clock().now().to_msg()
-        t.header.frame_id = 'base_link_inertia'
-        t.child_frame_id = 'initial_pose'
-        t.transform = self.initial_pose
+            for j in range(int(images_per_step[i])):
+                x = random.randrange(-r_array[i], r_array[i], 1) / 1000
+                y = random.randrange(-r_array[i], r_array[i], 1) / 1000
+                z = - random.randrange(z_array[i] - zd / 2, z_array[i] + zd / 2, 1) / 1000
 
-        self.tf_static_broadcaster.sendTransform(t)
+                # Create a quaternion from euler angles
+                r = Rotations()
+                r.from_euler(0, 0, random.randrange(-30, 30, 1) / 100 )
+                q = r.as_quat()
 
-    def handle_next_pose(self):
-        t = TransformStamped()
 
-        # Read message content and assign it to
-        # corresponding tf variables
-        t.header.stamp = self.get_clock().now().to_msg()
-        t.header.frame_id = 'initial_pose'
-        t.child_frame_id = 'next_pose'
+                self.points[points_index] = np.array([x,y,z,q[0],q[1],q[2],q[3]])
+                # print(self.points[points_index])
+                self.publish_tf(self.points[points_index], 'initial_pose', 'point_{}'.format(points_index))
+                points_index += 1
+        
+        self.points[-1] = [0.0,0.0,0.0,0.0,0.0,0.0,1.0]
+        self.points = self.points[(-self.points[:,2]).argsort()]
 
-        # We create the translation
-        t.transform.translation.x = random.randrange(-90, 90, 1) / 1000
-        t.transform.translation.y = random.randrange(-90, 90, 1) / 1000
-        t.transform.translation.z = 0.0 #random.randrange(0, -300, -1) / 1000 #
+        self.points_list = self.points.tolist()
+        self.points = np.array(self.sort_points(self.points_list))
 
-<<<<<<< Updated upstream
-        t_next_pose = [t.transform.translation.x,t.transform.translation.y,t.transform.translation.z]
-        # self.get_logger().info('offset transform {} {} {}'.format(t_next_pose[0],t_next_pose[1],t_next_pose[2]))
-
-        # Create a quaternion from euler angles
-        r = Rotations()
-        r.from_euler(0, 0, random.randrange(-30, 30, 1) / 100 )
-        q_next_pose = r.as_quat()
-
-=======
 
     def generate_close_points(self, r = 50):
         x = np.arange(-r, r, 5) / 1000
@@ -548,55 +481,65 @@ class RobotCommander(Node):
         self.publish_tf(self.close_points[index], 'initial_pose', 'point_{}'.format(index))
         # self.get_logger().info('offset transform {} {} {}'.format(t_next_pose[0],t_next_pose[1],t_next_pose[2]))
 
->>>>>>> Stashed changes
         next_pose_matrix = self.create_transformation_matrix(q_next_pose, t_next_pose)
+        
+        self.points[-1] = [0.0,0.0,0.0,0.0,0.0,0.0,1.0]
+        self.points = self.points[(-self.points[:,2]).argsort()]
+
+        self.points_list = self.points.tolist()
+        self.points = np.array(self.sort_points(self.points_list))
+
+    def sort_points(self, points):
+        sorted_points = []
+        current_point = self.points_list.pop(0)
+        sorted_points.append(current_point)
+        
+        while self.points_list:
+            closest_point_index = self.find_closest_point_index(current_point[:3], points[:3])
+            current_point = self.points_list.pop(closest_point_index)
+            sorted_points.append(current_point)
+        
+        return sorted_points
+
+    def distance(self,point1, point2):
+        return np.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2 + (point1[2] - point2[2])**2)
+
+    def find_closest_point_index(self,current_point, points):
+        min_distance = float('inf')
+        closest_point_index = None
+        for i, point in enumerate(points):
+            if point is not current_point:
+                dist = self.distance(current_point, point)
+                if dist < min_distance:
+                    min_distance = dist
+                    closest_point_index = i
+        return closest_point_index
+
+    def handle_next_pose(self, index):
+        next_pose = self.points[index,:3]
+        # self.get_logger().info('offset transform {} {} {}'.format(t_next_pose[0],t_next_pose[1],t_next_pose[2]))
+
+        next_pose_matrix = self.create_transformation_matrix(self.points[index,3:], next_pose)
+
         # self.print_transformation_matrix(next_pose_matrix)
 
         base_to_next_matrix = np.dot(self.initial_matrix,next_pose_matrix)
         # self.print_transformation_matrix(base_to_next_matrix)
-        
-        q = q_next_pose
-
-        t.transform.rotation.x = q[0]
-        t.transform.rotation.y = q[1]
-        t.transform.rotation.z = q[2]
-        t.transform.rotation.w = q[3]
-
-        # Send the transformation
-        self.tf_broadcaster.sendTransform(t)
 
         r = Rotations()
         r.from_matrix(base_to_next_matrix[0:3,0:3])
         next_rotation = r.as_rotvec()
 
-        # self.get_logger().info(t_next_pose)
-        # if translation != -1 and rotation != -1:
-        # self.send_urscript(t_next_pose, q_aux)
         self.send_urscript(base_to_next_matrix[:3,3], next_rotation)
-
-    def back_to_first_pose(self):
-        self.send_urscript(self.initial_matrix[:3,3], self.initial_rotvec)
 
     def send_urscript(self, translation, rotation):
         """
         Using the primary interface to send URScripts programs to move the robot
         """
-
         msg = String()
-<<<<<<< Updated upstream
-        # msg.data = """def my_prog():\nset_digital_out(1, True)\nrv=rpy2rotvec([{},{},{}])\nmovej(p[{},{},{},rv[0],rv[1],rv[2]], a=1.2, v=0.25, r=0)\nset_digital_out(1, False)\nend""".format(r,p,y,translation.x,translation.y, translation.z)
-        # msg.data = """def my_prog():\nset_digital_out(1, True)\nrv=rpy2rotvec([{},{},{}])\nmovej(p[{},{},{},rv[0],rv[1],rv[2]], a=1.2, v=0.25, r=0)\nset_digital_out(1, False)\nend""".format(r,p,y,translation[0],translation[1], translation[2])
-        msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=1.2, v=0.25, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
-=======
         msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=0.3, v=0.08, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
->>>>>>> Stashed changes
         self.publisher_.publish(msg)
         # self.get_logger().info(msg.data)
-        # self.i += 1
-
-<<<<<<< Updated upstream
-    def lookup_transform(self, to_frame_rel, from_frame_rel,array=True):
-=======
 
     def back_to_first_pose(self):
         self.send_urscript(self.initial_matrix[:3,3], self.initial_rotvec)
@@ -628,7 +571,6 @@ class RobotCommander(Node):
             self.tf_broadcaster.sendTransform(t)
 
     def lookup_transform_(self, to_frame_rel, from_frame_rel, time=rclpy.time.Time()):
->>>>>>> Stashed changes
         """
         Search for transformations between two specific frames.
         
@@ -644,7 +586,6 @@ class RobotCommander(Node):
 
             translation = [t.transform.translation.x, t.transform.translation.y,t.transform.translation.z]
             rotation = [t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w]
-<<<<<<< Updated upstream
 
             #todo: put this somewhere else
             if (self.initial_pose.translation.x == 0 or self.initial_pose.translation.y == 0 or self.initial_pose.translation.z == 0):   
@@ -666,39 +607,15 @@ class RobotCommander(Node):
                 # with open('./test.yaml', 'w') as file:
                 #     yaml.dump(self.gt, file,  default_flow_style=False)
             #
-
-            if array:
-                return translation, rotation
-            else:
-                return t.transform.translation, t.transform.rotation
-=======
+            
             # print("C ", t.header.stamp, "\n")
             return translation, rotation
->>>>>>> Stashed changes
 
         except TransformException as ex:
             self.get_logger().info(
                 f'Could not transform {to_frame_rel} to {from_frame_rel}: {ex}')
-<<<<<<< Updated upstream
-            return -1, -1
-    
-    def print_transformation_matrix(self, H):
-        a, b, c, d = H[0,:]
-        e, f, g, h = H[1,:]
-        i, j, k, l = H[2,:]
-        m, n, o, p = H[3,:]
-        self.get_logger().info('transformation matrix: \n [[{},{},{},{}],\n[{},{},{},{}],\n[{},{},{},{}],\n[{},{},{},{}]]'.format(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p))
-
-    
-    def print_rotation_matrix(self, R):
-        a, b, c = R[0,:]
-        d, e, f = R[1,:]
-        g, h, i = R[2,:]
-        self.get_logger().info('rotation matrix: \n [[{},{},{}],\n[{},{},{}],\n[{},{},{}]]'.format(a,b,c,d,e,f,g,h,i))
-=======
             return [0.0,0.0,0.0], [0.0,0.0,0.0,0.0]
-        
->>>>>>> Stashed changes
+
 
 def main(args=None):
     rclpy.init(args=args)
