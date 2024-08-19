@@ -106,7 +106,7 @@ class RobotCommander(Node):
        
         self.publisher_ = self.create_publisher(String, '/urscript_interface/script_command', 10)
 
-        timer_period = 0.01 # seconds
+        timer_period = 01.1 # seconds
 
         self.timer = self.create_timer(timer_period, self.timer_callback)
         self.i = 0
@@ -152,6 +152,7 @@ class RobotCommander(Node):
 
         if (self.state == 0 or self.state == 2) and self.i < len(self.close_points) and not self.once:
             self.handle_next_pose(self.i)
+            print("Movedd " + str(self.state) + " \n")
             self.state = 1
 
         if self.i >= len(self.close_points):
@@ -250,7 +251,7 @@ class RobotCommander(Node):
 
                 resized = cv2.resize(image, (self.image_width, self.image_height))
                 self.capture_and_save_image(resized, os.path.join(self.img_path, filename))
-                self.state = 0
+                # self.state = 0
                 if self.image_count == 0:
                     print("Starting time ", datetime.now())
                 print("Image ", self.image_count, " Point ", self.i, "/", len(self.close_points), end='\r')
@@ -347,52 +348,52 @@ class RobotCommander(Node):
 
         return 0
 
-    def generate_points(self, z_far=10,z_step=1,r_max=100,r_min=100):
+    # def generate_points(self, z_far=10,z_step=1,r_max=100,r_min=100):
 
-        if self.image_count_max < 1:
-            print("Image count not set")
-            return
+    #     if self.image_count_max < 1:
+    #         print("Image count not set")
+    #         return
 
-        zd = z_far / z_step # Interval
-        z_array = np.arange(z_step) * zd + zd / 2
+    #     zd = z_far / z_step # Interval
+    #     z_array = np.arange(z_step) * zd + zd / 2
 
-        r_array = r_min + (r_max - r_min) * (np.arange(z_step) / z_step)
-        a = np.power(r_array,2)
-        a_percentage = a / np.sum(a)
+    #     r_array = r_min + (r_max - r_min) * (np.arange(z_step) / z_step)
+    #     a = np.power(r_array,2)
+    #     a_percentage = a / np.sum(a)
 
-        points_index = 0
+    #     points_index = 0
 
-        images_per_step = self.image_count_max * a_percentage
-        images_per_step = np.round(images_per_step)
+    #     images_per_step = self.image_count_max * a_percentage
+    #     images_per_step = np.round(images_per_step)
 
-        images_per_step[0] += self.image_count_max - np.sum(images_per_step)
-
-
-        for i in range(z_step):
-
-            # print(int(images_per_step[0]))
-
-            for j in range(int(images_per_step[i])):
-                x = random.randrange(-r_array[i], r_array[i], 1) / 1000
-                y = random.randrange(-r_array[i], r_array[i], 1) / 1000
-                z = - random.randrange(z_array[i] - zd / 2, z_array[i] + zd / 2, 1) / 1000
-
-                # Create a quaternion from euler angles
-                r = Rotations()
-                r.from_euler(0, 0, random.randrange(-30, 30, 1) / 100 )
-                q = r.as_quat()
+    #     images_per_step[0] += self.image_count_max - np.sum(images_per_step)
 
 
-                self.points[points_index] = np.array([x,y,z,q[0],q[1],q[2],q[3]])
-                # print(self.points[points_index])
-                self.publish_tf(self.points[points_index], 'initial_pose', 'point_{}'.format(points_index))
-                points_index += 1
+    #     for i in range(z_step):
+
+    #         # print(int(images_per_step[0]))
+
+    #         for j in range(int(images_per_step[i])):
+    #             x = random.randrange(-r_array[i], r_array[i], 1) / 1000
+    #             y = random.randrange(-r_array[i], r_array[i], 1) / 1000
+    #             z = - random.randrange(z_array[i] - zd / 2, z_array[i] + zd / 2, 1) / 1000
+
+    #             # Create a quaternion from euler angles
+    #             r = Rotations()
+    #             r.from_euler(0, 0, random.randrange(-30, 30, 1) / 100 )
+    #             q = r.as_quat()
+
+
+    #             self.points[points_index] = np.array([x,y,z,q[0],q[1],q[2],q[3]])
+    #             # print(self.points[points_index])
+    #             self.publish_tf(self.points[points_index], 'initial_pose', 'point_{}'.format(points_index))
+    #             points_index += 1
         
-        self.points[-1] = [0.0,0.0,0.0,0.0,0.0,0.0,1.0]
-        self.points = self.points[(-self.points[:,2]).argsort()]
+    #     self.points[-1] = [0.0,0.0,0.0,0.0,0.0,0.0,1.0]
+    #     self.points = self.points[(-self.points[:,2]).argsort()]
 
-        self.points_list = self.points.tolist()
-        self.points = np.array(self.sort_points(self.points_list))
+    #     self.points_list = self.points.tolist()
+    #     self.points = np.array(self.sort_points(self.points_list))
 
 
     def generate_close_points(self, r = 50):
@@ -442,35 +443,10 @@ class RobotCommander(Node):
                 self.close_points.append([i,j,z,q[0],q[1],q[2],q[3]])
                 self.close_points.append([0.0,0.0,0.0,0.0,0.0,0.0,1.0])
         
-        # for i, point in enumerate(self.close_points):
-        #     self.publish_tf(point, 'initial_pose', '{}'.format(i))
+        for i, point in enumerate(self.close_points):
+            self.publish_tf(point, 'initial_pose', '{}'.format(i))
 
 
-    def sort_points(self, points):
-        sorted_points = []
-        current_point = self.points_list.pop(0)
-        sorted_points.append(current_point)
-        
-        while self.points_list:
-            closest_point_index = self.find_closest_point_index(current_point[:3], points[:3])
-            current_point = self.points_list.pop(closest_point_index)
-            sorted_points.append(current_point)
-        
-        return sorted_points
-
-    def distance(self,point1, point2):
-        return np.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2 + (point1[2] - point2[2])**2)
-
-    def find_closest_point_index(self,current_point, points):
-        min_distance = float('inf')
-        closest_point_index = None
-        for i, point in enumerate(points):
-            if point is not current_point:
-                dist = self.distance(current_point, point)
-                if dist < min_distance:
-                    min_distance = dist
-                    closest_point_index = i
-        return closest_point_index
 
     def handle_next_pose(self, index):
         # t_next_pose = self.points[index,:3]
@@ -482,49 +458,8 @@ class RobotCommander(Node):
         # self.get_logger().info('offset transform {} {} {}'.format(t_next_pose[0],t_next_pose[1],t_next_pose[2]))
 
         next_pose_matrix = self.create_transformation_matrix(q_next_pose, t_next_pose)
-        
-        self.points[-1] = [0.0,0.0,0.0,0.0,0.0,0.0,1.0]
-        self.points = self.points[(-self.points[:,2]).argsort()]
-
-        self.points_list = self.points.tolist()
-        self.points = np.array(self.sort_points(self.points_list))
-
-    def sort_points(self, points):
-        sorted_points = []
-        current_point = self.points_list.pop(0)
-        sorted_points.append(current_point)
-        
-        while self.points_list:
-            closest_point_index = self.find_closest_point_index(current_point[:3], points[:3])
-            current_point = self.points_list.pop(closest_point_index)
-            sorted_points.append(current_point)
-        
-        return sorted_points
-
-    def distance(self,point1, point2):
-        return np.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2 + (point1[2] - point2[2])**2)
-
-    def find_closest_point_index(self,current_point, points):
-        min_distance = float('inf')
-        closest_point_index = None
-        for i, point in enumerate(points):
-            if point is not current_point:
-                dist = self.distance(current_point, point)
-                if dist < min_distance:
-                    min_distance = dist
-                    closest_point_index = i
-        return closest_point_index
-
-    def handle_next_pose(self, index):
-        next_pose = self.points[index,:3]
-        # self.get_logger().info('offset transform {} {} {}'.format(t_next_pose[0],t_next_pose[1],t_next_pose[2]))
-
-        next_pose_matrix = self.create_transformation_matrix(self.points[index,3:], next_pose)
-
-        # self.print_transformation_matrix(next_pose_matrix)
 
         base_to_next_matrix = np.dot(self.initial_matrix,next_pose_matrix)
-        # self.print_transformation_matrix(base_to_next_matrix)
 
         r = Rotations()
         r.from_matrix(base_to_next_matrix[0:3,0:3])
@@ -537,7 +472,7 @@ class RobotCommander(Node):
         Using the primary interface to send URScripts programs to move the robot
         """
         msg = String()
-        msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=0.3, v=0.08, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
+        msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=0.5, v=0.18, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
         self.publisher_.publish(msg)
         # self.get_logger().info(msg.data)
 
