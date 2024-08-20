@@ -130,8 +130,8 @@ class RobotCommander(Node):
         # while self.publish_first_pose() < 0:
         #     print("Waiting for transform.")
         self.once = True
-        # self.generate_close_points(60)
-        self.generate_cone_points(80)
+        self.generate_close_points(60)
+        # self.generate_cone_points(80)
 
     def send_request(self):
         """
@@ -472,7 +472,7 @@ class RobotCommander(Node):
         Using the primary interface to send URScripts programs to move the robot
         """
         msg = String()
-        msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=0.5, v=0.18, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
+        msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=0.1, v=0.03, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
         self.publisher_.publish(msg)
         # self.get_logger().info(msg.data)
 

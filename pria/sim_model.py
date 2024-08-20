@@ -177,6 +177,7 @@ class Trainer:
             
         error = []
         norm_ = []
+        cycle_time = []
         max_dist = -np.inf
         min_dist = np.inf     
         for index in range(self.total_images):
@@ -191,6 +192,7 @@ class Trainer:
             y_hat = np.concatenate((t, r))
 
             # print("inference label ", y_hat)
+            start = time.time()
 
             self.Xi = torch.tensor(im_array, dtype=torch.float32)
             self.Xi = self.Xi.permute(2, 0, 1)
@@ -201,6 +203,11 @@ class Trainer:
             y.squeeze(0)
             y = y.cpu()
             y_u = y.detach().numpy() * (self.max_labels - self.min_labels) + self.min_labels
+
+            stop = time.time()
+            cycle_time.append(stop - start)
+
+
             # print("inference ", y_u[0])
             # Compute distance 3D
             diff = y_u - y_hat
@@ -227,7 +234,7 @@ class Trainer:
             error.append(dist)
             norm_.append(norm)
 
-        print(np.mean(error), max_dist, min_dist, np.mean(norm_))
+        print(np.mean(error), max_dist, min_dist, np.mean(norm_), 1/np.mean(cycle_time))
         # print(im_array.shape)
         # im.show()
 
@@ -678,7 +685,7 @@ class Trainer:
         self.open_model()
         print("Step 2: Open normalization data")
         self.open_batch_normalization()
-        print("Step 3: Open image and infere")
+        print("Step 3: Open image and infer")
         self.show_image(index)
 
     def metrics(self):
@@ -792,13 +799,13 @@ if __name__ == "__main__":
 
         if len(sys.argv) == 5:
             Trainer(data_folder, model, epochs).infer(int(sys.argv[4]))
-        else:
-            # Trainer(data_folder, model, epochs).run()
-            for i in range(4):
-                folder = '{}{}'.format(data_folder, options[i])
-                print("////////////////////////////////")
-                print(i, " " + folder)
-                print("////////////////////////////////")
-                Trainer(folder, model, epochs).run_batch()
+        # else:
+        #     # Trainer(data_folder, model, epochs).run()
+        #     for i in range(4):
+        #         folder = '{}{}'.format(data_folder, options[i])
+        #         print("////////////////////////////////")
+        #         print(i, " " + folder)
+        #         print("////////////////////////////////")
+        #         Trainer(folder, model, epochs).run_batch()
 
         # Trainer(data_folder, model, epochs).gt_converter()
