@@ -150,13 +150,17 @@ class RobotCommander(Node):
             if self.publish_first_pose() == 0:
                 self.once = False
 
-        if (self.state == 0 or self.state == 2) and self.i < len(self.close_points) and not self.once:
+        limit = len(self.close_points)
+        limit = 2
+
+        if (self.state == 0 or self.state == 2) and self.i < limit and not self.once:
             self.handle_next_pose(self.i)
             print("Movedd " + str(self.state) + " \n")
             self.state = 1
 
-        if self.i >= len(self.close_points):
+        if self.i >= limit:
             # and exit
+            self.back_to_first_pose()
             print("Took ", self.image_count, " images")
             print("Finish time ", datetime.now())
             self.gt['initial_pose']['total_images'] = self.image_count
@@ -232,14 +236,15 @@ class RobotCommander(Node):
 
         if self.state == 2 or (self.state == 1 and self.image_count == 0) or True:
             # Get current transform for the image ground truth
-            # print("A", msg.header.stamp)
+            print("A", msg.header.stamp)
             # print("B", self.get_clock().now())
+            print("AA ", rclpy.time.Time())
 
             #If using Simulation get tf 1 second ago to compensate
-            T, Q = self.lookup_transform_('wrist_3_link', 'initial_pose')
-            # T, Q = self.lookup_transform_('wrist_3_link_sim', 'initial_pose')
+            # T, Q = self.lookup_transform_('wrist_3_link', 'initial_pose')
+            T, Q = self.lookup_transform_('wrist_3_link_sim', 'initial_pose')
 
-            if np.sum(Q) != 0:
+            if np.sum(Q) != 0 and np.sum(T) != 0:
                 self.gt.update({
                     self.image_count: {
                         'translation':T,
@@ -318,8 +323,8 @@ class RobotCommander(Node):
         """
         Publish a static frame with respect to the robot base of the first pose
         """
-        translation, rotation = self.lookup_transform_('base_link_inertia', 'wrist_3_link')
-        # translation, rotation = self.lookup_transform_('base_link_inertia', 'wrist_3_link_sim')
+        # translation, rotation = self.lookup_transform_('base_link_inertia', 'wrist_3_link')
+        translation, rotation = self.lookup_transform_('base_link_inertia', 'wrist_3_link_sim')
 
         if np.sum(translation) == 0:
             return -1
@@ -407,7 +412,7 @@ class RobotCommander(Node):
             r = Rotations()
             r.from_euler(0, 0, random.randrange(-50, 50, 1) / 100 )
             q = r.as_quat()
-            # q = [0.0,0.0,0.0,1.0]
+            q = [0.0,0.0,0.0,1.0]
             z = 0.0
 
             if i % 2 == 0:
@@ -472,7 +477,7 @@ class RobotCommander(Node):
         Using the primary interface to send URScripts programs to move the robot
         """
         msg = String()
-        msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=0.1, v=0.03, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
+        msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=0.1, v=0.1, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
         self.publisher_.publish(msg)
         # self.get_logger().info(msg.data)
 
