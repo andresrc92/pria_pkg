@@ -236,13 +236,28 @@ class RobotCommander(Node):
 
         if self.state == 2 or (self.state == 1 and self.image_count == 0) or True:
             # Get current transform for the image ground truth
-            print("A", msg.header.stamp)
+            # print("A", msg.header.stamp)
             # print("B", self.get_clock().now())
-            print("AA ", rclpy.time.Time())
+            # print("AA ", rclpy.time.Time())
 
             #If using Simulation get tf 1 second ago to compensate
             # T, Q = self.lookup_transform_('wrist_3_link', 'initial_pose')
-            T, Q = self.lookup_transform_('wrist_3_link_sim', 'initial_pose')
+            # T, Q = self.lookup_transform_('wrist_3_link_sim', 'initial_pose')
+            T, Q = self.lookup_transform_('base_link_inertia','wrist_3_link_sim')
+
+            actual_matrix = self.create_transformation_matrix(Q,T)
+            actual_inverse = np.linalg.inv(actual_matrix)
+
+            
+            pose_relative_to_start = np.dot(actual_inverse,self.initial_matrix)
+            
+
+            T = pose_relative_to_start[:3,3].tolist()
+            r = Rotations()
+            r.from_matrix(pose_relative_to_start[0:3,0:3])
+            Q = r.as_quat().tolist()
+
+            # print("Q ", Q)
 
             if np.sum(Q) != 0 and np.sum(T) != 0:
                 self.gt.update({
