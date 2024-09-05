@@ -83,6 +83,12 @@ class Trainer:
         with open(next_gt_path, 'w') as file:
             yaml.dump(self.next_gt_file, file,  default_flow_style=False)
 
+    def get_initial_pose(self):
+        t = np.array(self.gt_file["initial_pose"]["translation"], dtype="f")
+        r = np.array(self.gt_file["initial_pose"]["rotation"], dtype="f")
+        pose = np.concatenate((t, r))
+        return pose
+
     def read_meta_data(self):
         with open(self.gt_path, "r") as file:
             self.gt_file = yaml.safe_load(file)
@@ -243,7 +249,71 @@ class Trainer:
         # plt.imshow(im_array, interpolation='nearest')
         # plt.show()
 
-    def infer_from_image(self, image, show=False):
+    def show_single_image(self, index):
+        index = int(index)
+        if index < 0 or index > self.total_images:
+            return
+            
+        file_name = "{}.png".format(index)
+        full_path = os.path.join(self.imgs_folder, file_name)
+        print(full_path)
+        im = Image.open(full_path)
+        im_array = np.asarray(im)[:, :, :3] / 255
+
+        t = np.array(self.gt_file[index]["translation"], dtype="f")
+        r = np.array(self.gt_file[index]["rotation"], dtype="f")
+        y_hat = np.concatenate((t, r))
+
+        print("inference label ", y_hat)
+        start = time.time()
+
+        self.Xi = torch.tensor(im_array, dtype=torch.float32)
+        self.Xi = self.Xi.permute(2, 0, 1)
+        self.Xi = self.Xi.unsqueeze(0)
+        self.Xi = self.Xi.to(self.gpu, dtype=torch.float)
+
+        y = self.cnn(self.Xi)
+        y.squeeze(0)
+        y = y.cpu()
+        y_u = y.detach().numpy() * (self.max_labels - self.min_labels) + self.min_labels
+
+        stop = time.time()
+        cycle_time = stop - start
+
+
+        print("inference ", y_u[0])
+        # Compute distance 3D
+        diff = y_u - y_hat
+        # print("error ", diff[0])
+
+        dist = np.power(diff[0][:3], 2)
+        dist = np.sum(dist)
+
+        # if dist > max_dist:
+        #     max_dist = dist
+
+        # if dist < min_dist:
+        #     min_dist = dist
+
+        # print("Cartesian distance: ", dist, " m")
+
+        # print("Predicted quaternion norm: ", norm)
+        norm = np.power(y_hat[3:], 2)
+        norm = np.sum(norm)
+        # Predicted quaternion norm
+        norm = np.power(y_u[0][3:], 2)
+        norm = np.sum(norm)
+        
+        print("dist: ", dist, "norm: ", norm, "freq: ", 1/cycle_time)
+        # print(im_array.shape)
+        # im.show()
+
+        # print(im_array[0,300:305,:])
+
+        plt.imshow(im_array, interpolation='nearest')
+        plt.show()
+
+    def infer_from_image(self, image, show=True):
         h, w, c = image.shape
         if w != 320 or h != 240:
             im = cv2.resize(image, dsize=(320, 240), interpolation=cv2.INTER_CUBIC)
@@ -267,7 +337,7 @@ class Trainer:
         y_u = y.detach().numpy()[0] * (self.max_labels - self.min_labels) + self.min_labels
 
         # print(np.round(y.detach().numpy()[:3], 2))
-        # print("Translation ", np.round(y_u[0][:3],3))
+        print("Translation ", np.round(y_u[:3],3))
 
         # Normalize quaternion output
         mod_ = np.power(y_u[3:], 2)
@@ -450,8 +520,8 @@ class Trainer:
             self.max_labels = npzfile[max_labels]
             self.min_labels = npzfile[min_labels]
 
-            print(self.min_labels)
-            print(self.max_labels)
+            print("Labels min ", self.min_labels)
+            print("Labels max ", self.max_labels)
 
     def train_batch(self):
 
@@ -635,6 +705,9 @@ class Trainer:
         torch.save(self.cnn.state_dict(), self.model_path)
 
     def open_batch_normalization(self):
+        with open(self.gt_path, "r") as file:
+            self.gt_file = yaml.safe_load(file)
+
         with open(self.norm_data, "rb") as f:
             npzfile = np.load(f)
 
@@ -644,8 +717,8 @@ class Trainer:
             self.max_labels = npzfile[max_labels]
             self.min_labels = npzfile[min_labels]
 
-            print(self.min_labels)
-            print(self.max_labels)
+            print("Labels min ", self.min_labels)
+            print("Labels max ", self.max_labels)
 
     def test_the_model(self):
         return
@@ -686,7 +759,7 @@ class Trainer:
         print("Step 2: Open normalization data")
         self.open_batch_normalization()
         print("Step 3: Open image and infer")
-        self.show_image(index)
+        self.show_single_image(index)
 
     def metrics(self):
 
@@ -799,13 +872,13 @@ if __name__ == "__main__":
 
         if len(sys.argv) == 5:
             Trainer(data_folder, model, epochs).infer(int(sys.argv[4]))
-        # else:
-        #     # Trainer(data_folder, model, epochs).run()
-        #     for i in range(4):
-        #         folder = '{}{}'.format(data_folder, options[i])
-        #         print("////////////////////////////////")
-        #         print(i, " " + folder)
-        #         print("////////////////////////////////")
-        #         Trainer(folder, model, epochs).run_batch()
+        else:
+            Trainer(data_folder, model, epochs).run_batch()
+            # for i in range(4):
+            #     folder = '{}{}'.format(data_folder, options[i])
+            #     print("////////////////////////////////")
+            #     print(i, " " + folder)
+            #     print("////////////////////////////////")
+            #     Trainer(folder, model, epochs).run_batch()
 
         # Trainer(data_folder, model, epochs).gt_converter()

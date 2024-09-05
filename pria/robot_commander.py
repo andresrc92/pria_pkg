@@ -47,7 +47,7 @@ class RobotCommander(Node):
 
         self.declare_parameter('images_count',0)
         self.image_count_max = self.get_parameter('images_count').get_parameter_value().integer_value
-        self.image_count = 0
+        self.image_count = 3562 #0
 
         self.points = np.empty((self.image_count_max,7),dtype=float)
 
@@ -150,8 +150,8 @@ class RobotCommander(Node):
             if self.publish_first_pose() == 0:
                 self.once = False
 
-        limit = len(self.close_points)
         limit = 2
+        limit = len(self.close_points)
 
         if (self.state == 0 or self.state == 2) and self.i < limit and not self.once:
             self.handle_next_pose(self.i)
@@ -256,6 +256,9 @@ class RobotCommander(Node):
             r = Rotations()
             r.from_matrix(pose_relative_to_start[0:3,0:3])
             Q = r.as_quat().tolist()
+
+
+            self.publish_tf(np.concatenate((T, Q)),'wrist_3_link_sim','gt')
 
             # print("Q ", Q)
 
@@ -492,7 +495,7 @@ class RobotCommander(Node):
         Using the primary interface to send URScripts programs to move the robot
         """
         msg = String()
-        msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=0.1, v=0.1, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
+        msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=0.1, v=0.08, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
         self.publisher_.publish(msg)
         # self.get_logger().info(msg.data)
 

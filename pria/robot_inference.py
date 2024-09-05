@@ -99,7 +99,8 @@ class RobotInferencer(Node):
         self.inMotionPrev = False
         self.homed = False
 
-        self.state = 0
+        # self.state = 0
+        self.state = 1
         self.index = 0
         self.gt = {}
 
@@ -115,19 +116,21 @@ class RobotInferencer(Node):
 
         # self.trainer = Trainer("vibrator_no_twist", 2, 100) # el que anda
         # self.trainer = Trainer("extrusion", 2, 100) # el que anda
-        self.trainer = Trainer("cup_drill_cone_twist", 2, 100) # el que anda
-        self.z_end = self.trainer.read_meta_data()
-        self.trainer.open_model()
-        # self.trainer.open_normalization()
-        self.trainer.open_batch_normalization()
+        # self.trainer = Trainer("cup_drill_cone_twist", 2, 100) # el que anda
+        # self.z_end = self.trainer.read_meta_data()
+        # self.trainer.open_model()
+        # # self.trainer.open_normalization()
+        # self.trainer.open_batch_normalization()
 
-        self.flat_model = Trainer("cup_drill_twist", 2, 100)
+        # self.flat_model = Trainer("cup_drill_twist", 2, 100)
+        self.flat_model = Trainer("black_cube_2", 2, 100)
         self.flat_model.open_model()
         self.flat_model.open_batch_normalization()
 
-        print("Initial height ", self.z_end)
+        # self.move_to_first_pose()
+        # print("Initial height ", self.z_end)
 
-        self.send_home()
+        # self.send_home()
 
     def send_request(self):
         """
@@ -180,18 +183,22 @@ class RobotInferencer(Node):
         image = self.bridge.imgmsg_to_cv2(msg, 'bgra8')
         # self.color_filter(image)
 
-        pose = self.trainer.infer_from_image(image)
+        # pose = self.trainer.infer_from_image(image)
+        # pose = self.flat_model.infer_from_image(image)
 
-        if self.homed and not self.inMotion:
-            if self.state == 0:
-                pose = self.trainer.infer_from_image(image)
-                self.handle_predicted_pose(pose)
-            elif self.state == 1:
+        if (self.homed or True) and not self.inMotion:
+            # if self.state == 0:
+                # pose = self.trainer.infer_from_image(image)
+                # self.handle_predicted_pose(pose)
+            if self.state == 1 or True:
                 pose = self.flat_model.infer_from_image(image)
+                print(pose[:3])
                 self.handle_predicted_pose(pose)
             elif self.state == 2 and not self.inMotion:
                 self.state = 3
-                self.send_grip()
+                print("Done!")
+                # self.send_grip()
+                
 
             
 
@@ -247,23 +254,8 @@ class RobotInferencer(Node):
         T[:3, 3] = translation
         return T
     
-    def publish_first_pose(self):
-        """
-        Publish a static frame with respect to the robot base of the first pose
-        """
-        t = TransformStamped()
-
-        # Read message content and assign it to
-        # corresponding tf variables
-        t.header.stamp = self.get_clock().now().to_msg()
-        t.header.frame_id = 'base_link_inertia'
-        t.child_frame_id = 'initial_pose'
-        t.transform = self.initial_pose
-
-        self.tf_static_broadcaster.sendTransform(t)
-
     def handle_predicted_pose(self, prediction,):
-        t_current, q_current = self.lookup_transform('base_link_inertia', 'wrist_3_link', True)
+        t_current, q_current = self.lookup_transform('base_link_inertia', 'wrist_3_link_sim', True)
         
         t_next_pose = 1 * prediction[:3]
         if self.state == 1:
@@ -305,9 +297,9 @@ class RobotInferencer(Node):
         # print(dist)
         if not self.inMotion:
 
-            print("State ", self.state)
+            # print("State ", self.state)
             if self.state == 0:
-                print(dist, t_[2])
+                # print(dist, t_[2])
                 if dist > 0.0001 and t_[2] > 0.35:
                     # if t_[2] > (self.z_end - 0.05):
                     self.send_urscript(t_, r.as_rotvec())
@@ -346,55 +338,13 @@ class RobotInferencer(Node):
         self.tf_broadcaster.sendTransform(t)
 
 
-    def handle_next_pose(self):
-        t = TransformStamped()
-
-        # Read message content and assign it to
-        # corresponding tf variables
-        t.header.stamp = self.get_clock().now().to_msg()
-        t.header.frame_id = 'initial_pose'
-        t.child_frame_id = 'next_pose'
-
-        # We create the translation
-        t.transform.translation.x = random.randrange(-90, 90, 1) / 1000
-        t.transform.translation.y = random.randrange(-90, 90, 1) / 1000
-        t.transform.translation.z = 0.0 #random.randrange(0, -300, -1) / 1000 #
-
-        t_next_pose = [t.transform.translation.x,t.transform.translation.y,t.transform.translation.z]
-        # self.get_logger().info('offset transform {} {} {}'.format(t_next_pose[0],t_next_pose[1],t_next_pose[2]))
-
-        # Create a quaternion from euler angles
-        r = Rotations()
-        r.from_euler(0, 0, random.randrange(-30, 30, 1) / 100 )
-        q_next_pose = r.as_quat()
-
-        next_pose_matrix = self.create_transformation_matrix(q_next_pose, t_next_pose)
-        # self.print_transformation_matrix(next_pose_matrix)
-
-        base_to_next_matrix = np.dot(self.initial_matrix,next_pose_matrix)
-        # self.print_transformation_matrix(base_to_next_matrix)
-        
-        q = q_next_pose
-
-        t.transform.rotation.x = q[0]
-        t.transform.rotation.y = q[1]
-        t.transform.rotation.z = q[2]
-        t.transform.rotation.w = q[3]
-
-        # Send the transformation
-        self.tf_broadcaster.sendTransform(t)
+    def move_to_first_pose(self):
+        pose = self.flat_model.get_initial_pose()
 
         r = Rotations()
-        r.from_matrix(base_to_next_matrix[0:3,0:3])
-        next_rotation = r.as_rotvec()
+        r.from_array(pose[3:])
 
-        # self.get_logger().info(t_next_pose)
-        # if translation != -1 and rotation != -1:
-        # self.send_urscript(t_next_pose, q_aux)
-        self.send_urscript(base_to_next_matrix[:3,3], next_rotation)
-
-    def back_to_first_pose(self):
-        self.send_urscript(self.initial_matrix[:3,3], self.initial_rotvec)
+        self.send_urscript(pose[:3], r.as_rotvec())
 
     def send_urscript(self, translation, rotation):
         """
