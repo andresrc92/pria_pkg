@@ -47,7 +47,7 @@ class RobotCommander(Node):
 
         self.declare_parameter('images_count',0)
         self.image_count_max = self.get_parameter('images_count').get_parameter_value().integer_value
-        self.image_count = 3562 #0
+        self.image_count = 0
 
         self.points = np.empty((self.image_count_max,7),dtype=float)
 
@@ -130,8 +130,8 @@ class RobotCommander(Node):
         # while self.publish_first_pose() < 0:
         #     print("Waiting for transform.")
         self.once = True
-        self.generate_close_points(60)
-        # self.generate_cone_points(80)
+        # self.generate_close_points(60)
+        self.generate_cone_points(80)
 
     def send_request(self):
         """
@@ -446,7 +446,7 @@ class RobotCommander(Node):
         #     self.publish_tf(point, 'initial_pose', '{}'.format(i))
 
 
-    def generate_cone_points(self, r = 50, z = 150.0):
+    def generate_cone_points(self, r = 50, z = 150.0, twist=False):
         x = np.arange(-r, r, 35) / 1000
         y = np.arange(-r, r, 35) / 1000
 
@@ -458,10 +458,12 @@ class RobotCommander(Node):
         for i in x:
             for j in y:
 
-                r = Rotations()
-                r.from_euler(0, 0, random.randrange(-50, 50, 1) / 100 )
-                q = r.as_quat()
-                # q = [0.0,0.0,0.0,1.0]
+                if twist:
+                    r = Rotations()
+                    r.from_euler(0, 0, random.randrange(-50, 50, 1) / 100 )
+                    q = r.as_quat()
+                else:
+                    q = [0.0,0.0,0.0,1.0]
 
                 self.close_points.append([i,j,z,q[0],q[1],q[2],q[3]])
                 self.close_points.append([0.0,0.0,0.0,0.0,0.0,0.0,1.0])

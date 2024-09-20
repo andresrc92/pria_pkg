@@ -99,8 +99,7 @@ class RobotInferencer(Node):
         self.inMotionPrev = False
         self.homed = False
 
-        # self.state = 0
-        self.state = 1
+        self.state = 0
         self.index = 0
         self.gt = {}
 
@@ -116,18 +115,24 @@ class RobotInferencer(Node):
 
         # self.trainer = Trainer("vibrator_no_twist", 2, 100) # el que anda
         # self.trainer = Trainer("extrusion", 2, 100) # el que anda
-        # self.trainer = Trainer("cup_drill_cone_twist", 2, 100) # el que anda
+        self.trainer = Trainer("black_cube_cone", 2, 100) # el que anda
         # self.z_end = self.trainer.read_meta_data()
-        # self.trainer.open_model()
-        # # self.trainer.open_normalization()
-        # self.trainer.open_batch_normalization()
+        self.trainer.open_model()
+        # self.trainer.open_normalization()
+        self.trainer.open_batch_normalization()
 
         # self.flat_model = Trainer("cup_drill_twist", 2, 100)
-        self.flat_model = Trainer("black_cube_2", 2, 100)
+        self.flat_model = Trainer("black_cube", 2, 100)
         self.flat_model.open_model()
         self.flat_model.open_batch_normalization()
+        self.ok = True
 
-        # self.move_to_first_pose()
+        self.reached_goal = False
+        self.trayectory = []
+        self.trayectory_data = "trajectory.npy" # os.path.join(self.model_folder, "loss.npy")
+        
+
+        # 
         # print("Initial height ", self.z_end)
 
         # self.send_home()
@@ -179,27 +184,58 @@ class RobotInferencer(Node):
         """
         This function listens to rgb topic
         """
-        # self.get_logger().info('I heard: "%s"' % msg.height)
-        image = self.bridge.imgmsg_to_cv2(msg, 'bgra8')
-        # self.color_filter(image)
+        if self.ok:
+            # self.ok = False
+            # self.get_logger().info('I heard: "%s"' % msg.height)
+            image = self.bridge.imgmsg_to_cv2(msg, 'rgba8')
 
-        # pose = self.trainer.infer_from_image(image)
-        # pose = self.flat_model.infer_from_image(image)
 
-        if (self.homed or True) and not self.inMotion:
-            # if self.state == 0:
-                # pose = self.trainer.infer_from_image(image)
-                # self.handle_predicted_pose(pose)
-            if self.state == 1 or True:
-                pose = self.flat_model.infer_from_image(image)
-                print(pose[:3])
-                self.handle_predicted_pose(pose)
-            elif self.state == 2 and not self.inMotion:
-                self.state = 3
-                print("Done!")
-                # self.send_grip()
+            h, w, c = image.shape
+            if w != 320 or h != 240:
+                im = cv2.resize(image, dsize=(self.image_width, self.image_height), interpolation=cv2.INTER_CUBIC)
+            else:
+                im = image
+            
+            im_array = np.asarray(im)[:, :, :3] / 255
+
+            # plt.imshow(im_array)
+            # plt.show()
+
+            # Get trayectory to the object
+            T, Q = self.lookup_transform_('base_link_inertia','wrist_3_link_sim')
+            if not self.homed and not self.inMotion:
+                self.move_to_first_pose(T)
+
+            if self.homed:
+
+                if not self.reached_goal:
+                    self.trayectory.append(T)
+                else:
+                    self.save_trayectory()
+
+
+                if not self.inMotion:
+
+                    if self.state == 0:
+                        print("State 0")
+                        pose = self.trainer.infer_from_image(im_array)
+                        self.handle_predicted_pose(pose)
+                    if self.state == 1:
+                        print("State 1")
+                        pose = self.flat_model.infer_from_image(im_array)
+                        self.handle_predicted_pose(pose)
+                    elif self.state == 2 and not self.inMotion:
+                        self.state = 3
+                        
+                        # self.send_grip()
+
+                        print("Done!")
+                        raise SystemExit
+            
                 
-
+    def save_trayectory(self):
+        with open(self.trayectory_data, "wb") as f:
+            np.savez(f, np.array(self.trayectory))
             
 
     def color_filter(self, frame):
@@ -254,21 +290,15 @@ class RobotInferencer(Node):
         T[:3, 3] = translation
         return T
     
-    def handle_predicted_pose(self, prediction,):
+    def handle_predicted_pose(self, prediction):
         t_current, q_current = self.lookup_transform('base_link_inertia', 'wrist_3_link_sim', True)
         
-        t_next_pose = 1 * prediction[:3]
+        t_next_pose = 0.4 * prediction[:3]
         if self.state == 1:
-            # t_next_pose = -1 * prediction[:3] #only for vibrator
-            t_next_pose[2] = 0
-        # t_next_pose[2] = 0.0
-        # print("Trans_pred ", t_next_pose)
+            t_next_pose[2] = 0.0
 
         q_next_pose = prediction[3:]
-        # q_next_pose[3] *= -1
-
         # q_next_pose = [0,0,0,1]
-
         # self.publish_tf(np.concatenate((t_next_pose, q_next_pose)), 'wrist_3_link', 'predicted_pose')
         
         next_pose_matrix = self.create_transformation_matrix(q_next_pose,t_next_pose)
@@ -294,26 +324,22 @@ class RobotInferencer(Node):
         # If robot is close enough, stop sending commands
 
         # print(prediction[:3])
-        # print(dist)
         if not self.inMotion:
 
-            # print("State ", self.state)
             if self.state == 0:
-                # print(dist, t_[2])
-                if dist > 0.0001 and t_[2] > 0.35:
-                    # if t_[2] > (self.z_end - 0.05):
+                if t_next_pose[2] > 0.0015 and t_[2] > 0.100:
+                    print(prediction[2])
                     self.send_urscript(t_, r.as_rotvec())
                 else:
                     self.state = 1
 
             elif self.state == 1:
-                if dist > 0.0001:
+                if dist > 0.001:
                     self.send_urscript(t_, r.as_rotvec())
                 else:
+                    self.reached_goal = True
                     self.state = 2
-            
-        # else:
-        #     raise SystemExit
+
 
     def publish_tf(self, pose, head, child):
         t = TransformStamped()
@@ -338,13 +364,78 @@ class RobotInferencer(Node):
         self.tf_broadcaster.sendTransform(t)
 
 
-    def move_to_first_pose(self):
-        pose = self.flat_model.get_initial_pose()
+    def lookup_transform_(self, to_frame_rel, from_frame_rel, time=rclpy.time.Time()):
+        """
+        Search for transformations between two specific frames.
+        
+        If array is True, it returns a translation and rotation array (w = q[3])
+        """
 
-        r = Rotations()
-        r.from_array(pose[3:])
+        try:
+            t = self.tf_buffer.lookup_transform(
+            to_frame_rel,
+            from_frame_rel,
+            time,
+            timeout=rclpy.duration.Duration(seconds=1.0))
 
-        self.send_urscript(pose[:3], r.as_rotvec())
+            translation = [t.transform.translation.x, t.transform.translation.y,t.transform.translation.z]
+            rotation = [t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w]
+
+            return translation, rotation
+
+        except TransformException as ex:
+            self.get_logger().info(
+                f'Could not transform {to_frame_rel} to {from_frame_rel}: {ex}')
+            return [0.0,0.0,0.0], [0.0,0.0,0.0,0.0]
+
+
+    def generate_cone_points(self, r = 50, z = 150.0, twist=False):
+        x = np.arange(-r, r, 35) / 1000
+        y = np.arange(-r, r, 35) / 1000
+
+        z /= 1000
+        z *= -1
+
+        self.close_points = []
+
+        for i in x:
+            for j in y:
+
+                if twist:
+                    r = Rotations()
+                    r.from_euler(0, 0, random.randrange(-50, 50, 1) / 100 )
+                    q = r.as_quat()
+                else:
+                    q = [0.0,0.0,0.0,1.0]
+
+                self.close_points.append([i,j,z,q[0],q[1],q[2],q[3]])
+                self.close_points.append([0.0,0.0,0.0,0.0,0.0,0.0,1.0])
+
+        self.max_points = len(self.close_points)
+        
+        # for i, point in enumerate(self.close_points):
+            # self.publish_tf(point, 'initial_pose', '{}'.format(i))
+
+    def move_to_first_pose(self,current):
+        initial = self.flat_model.get_initial_pose()
+
+        initial[0] -= 0.06
+        initial[1] -= 0.00
+        initial[2] += 0.15
+        
+        dist = np.power((initial[:3]-current),2)
+        dist = np.sum(dist)
+
+        if dist > 0.01:
+            print("Homming..")
+            r = Rotations()
+            r.from_array(initial[3:])
+
+            self.send_urscript(initial[:3], r.as_rotvec())
+        else:
+            print("Homed..")
+            self.homed = True
+            self.send_request()
 
     def send_urscript(self, translation, rotation):
         """
@@ -370,7 +461,7 @@ class RobotInferencer(Node):
     def send_home(self):
         msg = String()
 
-        with open('iniyial.script', 'r') as f:
+        with open('initial.script', 'r') as f:
             msg.data = f.read()
 
         self.publisher_.publish(msg)
@@ -386,7 +477,7 @@ class RobotInferencer(Node):
         # msg.data = """def my_prog():\nset_digital_out(1, True)\nrv=rpy2rotvec([{},{},{}])\nmovej(p[{},{},{},rv[0],rv[1],rv[2]], a=1.2, v=0.25, r=0)\nset_digital_out(1, False)\nend""".format(r,p,y,translation[0],translation[1], translation[2])
         # msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=0.8, v=0.1, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
         msg.data = """def my_prog():\nset_digital_out(1, True)\nspeedl([{},{},{},{},{},{}], a=0.2, t=1)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
-        self.publisher_.publish(msg)
+        # self.publisher_.publish(msg)
         # self.get_logger().info(msg.data)
         # self.i += 1
 

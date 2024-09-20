@@ -258,7 +258,10 @@ class Trainer:
         full_path = os.path.join(self.imgs_folder, file_name)
         print(full_path)
         im = Image.open(full_path)
-        im_array = np.asarray(im)[:, :, :3] / 255
+        im_array = np.asarray(im)[:, :, :3]/ 255
+
+        # cv2.imshow("input2", im_array)
+        # cv2.waitKey(1)
 
         t = np.array(self.gt_file[index]["translation"], dtype="f")
         r = np.array(self.gt_file[index]["rotation"], dtype="f")
@@ -267,26 +270,18 @@ class Trainer:
         print("inference label ", y_hat)
         start = time.time()
 
-        self.Xi = torch.tensor(im_array, dtype=torch.float32)
-        self.Xi = self.Xi.permute(2, 0, 1)
-        self.Xi = self.Xi.unsqueeze(0)
-        self.Xi = self.Xi.to(self.gpu, dtype=torch.float)
-
-        y = self.cnn(self.Xi)
-        y.squeeze(0)
-        y = y.cpu()
-        y_u = y.detach().numpy() * (self.max_labels - self.min_labels) + self.min_labels
+        y_u = self.infer_from_image(im_array, True)
 
         stop = time.time()
         cycle_time = stop - start
 
 
-        print("inference ", y_u[0])
+        print("inference ", y_u)
         # Compute distance 3D
         diff = y_u - y_hat
         # print("error ", diff[0])
 
-        dist = np.power(diff[0][:3], 2)
+        dist = np.power(diff[:3], 2)
         dist = np.sum(dist)
 
         # if dist > max_dist:
@@ -301,7 +296,7 @@ class Trainer:
         norm = np.power(y_hat[3:], 2)
         norm = np.sum(norm)
         # Predicted quaternion norm
-        norm = np.power(y_u[0][3:], 2)
+        norm = np.power(y_u[3:], 2)
         norm = np.sum(norm)
         
         print("dist: ", dist, "norm: ", norm, "freq: ", 1/cycle_time)
@@ -310,25 +305,25 @@ class Trainer:
 
         # print(im_array[0,300:305,:])
 
-        plt.imshow(im_array, interpolation='nearest')
+        labels = ['x','y','z','qx','qy','qz','qw']
+        plt.plot(labels, (y_u - y_hat), marker='o')
+
+        # plt.imshow(im_array, interpolation='nearest')
         plt.show()
 
-    def infer_from_image(self, image, show=True):
-        h, w, c = image.shape
-        if w != 320 or h != 240:
-            im = cv2.resize(image, dsize=(320, 240), interpolation=cv2.INTER_CUBIC)
-        else:
-            im = image
+    def infer_from_image(self, image, show=False):
+        
+        im_array = image
+
+        # print(im_array.shape)
 
         if show:
-            cv2.imshow("input", im)
-            cv2.waitKey(1)
+            plt.imshow(im_array, interpolation='nearest')
+            plt.show()
 
-        im_array = np.asarray(im)[:, :, :3] / 255
         self.Xi = torch.tensor(im_array, dtype=torch.float32)
         self.Xi = self.Xi.permute(2, 0, 1)
         self.Xi = self.Xi.unsqueeze(0)
-        # print(self.Xi.shape)
         self.Xi = self.Xi.to(self.gpu, dtype=torch.float)
 
         y = self.cnn(self.Xi)
@@ -337,7 +332,7 @@ class Trainer:
         y_u = y.detach().numpy()[0] * (self.max_labels - self.min_labels) + self.min_labels
 
         # print(np.round(y.detach().numpy()[:3], 2))
-        print("Translation ", np.round(y_u[:3],3))
+        # print("Prediction ", np.round(y_u,3))
 
         # Normalize quaternion output
         mod_ = np.power(y_u[3:], 2)
@@ -500,12 +495,14 @@ class Trainer:
 
         self.cnn = self.cnn.to(self.gpu)
         """
+        print(self.model_path)
         self.cnn.load_state_dict(torch.load(self.model_path))
-        self.cnn.eval()
 
         self.gpu = torch.device("cuda:0")
         self.cnn = self.cnn.to(self.gpu)
 
+        self.cnn.eval()
+        
     def open_normalization(self):
         with open(self.norm_data, "rb") as f:
             npzfile = np.load(f)
