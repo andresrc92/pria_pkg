@@ -226,11 +226,16 @@ class RobotInferencer(Node):
                         self.handle_predicted_pose(pose)
                     elif self.state == 2 and not self.inMotion:
                         self.state = 3
-                        
+                        self.index += 1
                         # self.send_grip()
+                    elif self.state == 3:
+                        
 
                         print("Done!")
-                        raise SystemExit
+
+
+        if self.index > self.max_points:
+            raise SystemExit
             
                 
     def save_trayectory(self):
