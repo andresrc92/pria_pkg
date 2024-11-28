@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import yaml
 import sys
 
@@ -54,10 +55,13 @@ def plot_trajectories_from_yaml(file_path, trajectory_num=None, just_plane=False
         if 'cono' in trajectory and not just_plane:
             cono = np.array(trajectory['cono'])
             if cono.size != 0 and cono.shape[1] == 3:
-                ax.plot(cono[-5:, 0], cono[-5:, 1], cono[-5:, 2], color=colors[int(trajectory_number) % len(colors)], label=f'Trajectory {trajectory_number} - Cono')
+                ax.plot(cono[:, 0], cono[:, 1], cono[:, 2], color=colors[int(trajectory_number) % len(colors)], label=f'Trajectory {trajectory_number} - Cono')
+                # ax.plot(cono[-5:, 0], cono[-5:, 1], cono[-5:, 2], color=colors[int(trajectory_number) % len(colors)], label=f'Trajectory {trajectory_number} - Cono')
                 # Add special points at the start and end of the 'cono' trajectory
-                ax.scatter(cono[-5, 0], cono[-5, 1], cono[-5, 2], color='black', s=50, marker='o', label=f'Trajectory {trajectory_number} Start (Cono)')
-                ax.text(cono[-5, 0], cono[-5, 1], cono[-5, 2], str(trajectory_number), zdir=(1,1,0),fontsize=15)
+                ax.scatter(cono[0, 0], cono[0, 1], cono[0, 2], color='black', s=50, marker='o', label=f'Trajectory {trajectory_number} Start (Cono)')
+                ax.text(cono[0, 0], cono[0, 1], cono[0, 2], str(trajectory_number), zdir=(1,1,0),fontsize=15)
+                # ax.scatter(cono[-5, 0], cono[-5, 1], cono[-5, 2], color='black', s=50, marker='o', label=f'Trajectory {trajectory_number} Start (Cono)')
+                # ax.text(cono[-5, 0], cono[-5, 1], cono[-5, 2], str(trajectory_number), zdir=(1,1,0),fontsize=15)
 
                 ax.scatter(cono[-1, 0], cono[-1, 1], cono[-1, 2], color='orange', s=50, marker='X', label=f'Trajectory {trajectory_number} End (Cono)')
                 end_points_cono.append(cono[-1])
@@ -148,15 +152,15 @@ def plot_trajectories_from_yaml(file_path, trajectory_num=None, just_plane=False
 
     
     # Label the axes
-    ax2d.set_xlabel("X axis (mm)")
-    ax2d.set_ylabel("Y axis (mm)")
+    ax2d.set_xlabel("X axis (m)", fontsize=16)
+    ax2d.set_ylabel("Y axis (m)", fontsize=16)
 
-    ax_alturas.set_xlabel("X axis (mm)")
-    ax_alturas.set_ylabel("Z axis (mm)")
+    ax_alturas.set_xlabel("X axis (m)", fontsize=16)
+    ax_alturas.set_ylabel("Z axis (m)", fontsize=16)
 
-    ax.set_xlabel("X axis (mm)")
-    ax.set_ylabel("Y axis (mm)")
-    ax.set_zlabel("Z axis (mm)")
+    ax.set_xlabel("X axis (m)")
+    ax.set_ylabel("Y axis (m)")
+    ax.set_zlabel("Z axis (m)")
     # ax.set_title("3D Trajectories from YAML")
     
     # Show legend
