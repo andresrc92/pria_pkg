@@ -1,0 +1,27 @@
+def unnamed():
+  global Waypoint_3_from_p=p[-.097803323407, -.603810233722, .412214741718, .703704567032, 3.020319790755, .054857565216]
+  global Waypoint_3_to_p=p[-.097803323424, -.603810233384, .406345582624, .703704567032, 3.020319790755, .054857565216]
+  global Waypoint_1_from_p=p[-.155089333620, -.441287237842, .215487801218, -.003922808953, 3.110081773739, .067720480881]
+  global Waypoint_1_to_p=p[-.155089333612, -.441287237691, .289772428328, -.003922808953, 3.110081773739, .067720480881]
+  global Waypoint_2_p=p[.502697851543, -.348492695004, .412214741718, -1.023774112540, 2.953273066034, .080033080856]
+  global Waypoint_2_q=[-0.3945073684139162, -1.8394203394276314, -1.45135742556052, -1.4445962725521504, 1.6189079230946561, 0.5083480049762458]
+  $ 2 "Robot Program"
+  $ 3 "MoveJ"
+  $ 4 "Waypoint_3" "breakAfter"
+  movej(pose_add(get_target_tcp_pose(), pose_sub(Waypoint_3_to_p, Waypoint_3_from_p)), a=1.3962634015954636, v=1.0471975511965976)
+  $ 6 "Wait: 2.0"
+  sleep(2.0)
+  $ 5 "Set DO[0]=On"
+  set_standard_digital_out(0, True)
+  $ 6 "Wait: 2.0"
+  sleep(2.0)
+  $ 7 "MoveJ"
+  $ 8 "Waypoint_1" "breakAfter"
+  movej(pose_add(get_target_tcp_pose(), pose_sub(Waypoint_1_to_p, Waypoint_1_from_p)), a=1.3962634015954636, v=1.0471975511965976)
+  $ 9 "Waypoint_2" "breakAfter"
+  movej(get_inverse_kin(Waypoint_2_p, qnear=Waypoint_2_q), a=1.3962634015954636, v=1.0471975511965976)
+  $ 10 "Set DO[0]=Off"
+  set_standard_digital_out(0, False)
+  $ 11 "Wait: 2.0"
+  sleep(2.0)
+end

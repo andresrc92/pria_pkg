@@ -121,7 +121,7 @@ class DataCollection(Node):
         This function uses the SetIO service to put DO1 to Low before starting
         """
         self.req.fun = 1 # FUN_SET_DIGITAL_OUT
-        self.req.pin = 1
+        self.req.pin = 0
         self.req.state = 0.0
         self.future = self.setio.call_async(self.req)
 
@@ -467,7 +467,6 @@ class DataCollection(Node):
 
     def back_to_first_pose(self):
         self.send_urscript(self.initial_matrix[:3,3], self.initial_rotvec)
-
 
     def publish_tf(self, pose, head, child, static=False):
         t = TransformStamped()
