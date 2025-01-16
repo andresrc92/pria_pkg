@@ -130,8 +130,8 @@ class RobotCommander(Node):
         # while self.publish_first_pose() < 0:
         #     print("Waiting for transform.")
         self.once = True
-        # self.generate_close_points(60)
-        self.generate_cone_points(80)
+        self.generate_close_points(60)
+        # self.generate_cone_points(80)
 
     def send_request(self):
         """
@@ -155,7 +155,7 @@ class RobotCommander(Node):
 
         if (self.state == 0 or self.state == 2) and self.i < limit and not self.once:
             self.handle_next_pose(self.i)
-            print("Movedd " + str(self.state) + " \n")
+            # print("Moved " + str(self.state) + " \n")
             self.state = 1
 
         if self.i >= limit:

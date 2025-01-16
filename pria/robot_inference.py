@@ -17,7 +17,7 @@ from ur_msgs.msg import IOStates
 from ur_msgs.srv import SetIO
 
 from pria.rotations import *
-from pria.sim_model import *
+from pria.pytorch_training_script import *
 
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Transform, TransformStamped, Quaternion
@@ -122,18 +122,13 @@ class RobotInferencer(Node):
         except FileExistsError:
             pass
 
-        # self.trainer = Trainer("vibrator_no_twist", 2, 100) # el que anda
-        # self.trainer = Trainer("extrusion", 2, 100) # el que anda
-        self.trainer = Trainer("black_cube_cone", 2, 100) # el que anda
-        # self.z_end = self.trainer.read_meta_data()
-        self.trainer.open_model()
-        # self.trainer.open_normalization()
-        self.trainer.open_batch_normalization()
+        self.fine_model = Trainer("./dataset/can/flat_no_twist", 100)
+        self.fine_model.open_model()
+        self.fine_model.open_batch_normalization()
 
-        # self.flat_model = Trainer("cup_drill_twist", 2, 100)
-        self.flat_model = Trainer("black_cube", 2, 100)
-        self.flat_model.open_model()
-        self.flat_model.open_batch_normalization()
+        self.coarse_model = Trainer("./dataset/can/cone_no_twist", 100)
+        self.coarse_model.open_model()
+        self.coarse_model.open_batch_normalization()
 
         self.reached_goal = False
         self.got_first_pose = False
@@ -229,7 +224,9 @@ class RobotInferencer(Node):
             if not self.inMotion:
 
                 if self.state == 0:
-                    pose = self.trainer.infer_from_image(im_array)
+                    pose = self.coarse_model.infer_from_image(im_array)
+
+                    print("Estado ", self.state, " | Dist: ", pose[2])
 
                     if pose[2] > 0.008:
                         self.trajectory_cone.append(T)
@@ -238,9 +235,11 @@ class RobotInferencer(Node):
                         self.state = 1
 
                 elif self.state == 1:
-                    pose = self.flat_model.infer_from_image(im_array)
+                    pose = self.fine_model.infer_from_image(im_array)
 
-                    if self.dist(pose[:3]) < 0.001:
+                    print("Estado ", self.state, " | Dist: ", self.dist(pose[:3]))
+
+                    if self.dist(pose[:3]) < 0.002:
                         self.reached_goal = True
                         self.state = 2
                     else:
@@ -255,6 +254,9 @@ class RobotInferencer(Node):
                     self.index += 1
                     print("Trajectory ", self.index)
                     self.homed = False
+
+                else:
+                    print("Waiting for next trajectory..")
 
             if self.index >= self.max_points:
                 self.save_trajectories()
@@ -460,7 +462,7 @@ class RobotInferencer(Node):
 
         return 0
 
-    def generate_cone_points(self, r = 50, z = 150.0, twist=False):
+    def generate_cone_points(self, r = 50, z = 200.0, twist=False):
         x = np.arange(-r, r, r*0.8) / 1000
         y = np.arange(-r, r, r*0.8) / 1000
 

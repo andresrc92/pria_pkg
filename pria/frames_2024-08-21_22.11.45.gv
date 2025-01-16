@@ -1,7 +1,0 @@
-digraph G {
-"base_link_inertia" -> "wrist_3_link"[label=" Broadcaster: default_authority\nAverage rate: 60.465\nBuffer length: 2.15\nMost recent transform: 277.683348\nOldest transform: 275.533348\n"];
-edge [style=invis];
- subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
-"Recorded at time: 1724289105.0643613"[ shape=plaintext ] ;
-}->"base_link_inertia";
-}
