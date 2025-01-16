@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" version="24.7.4" pages="3">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" version="24.9.0" pages="5">
   <diagram name="entorno virtual" id="C0osktGVDhIuheW2ykke">
     <mxGraphModel dx="1434" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
@@ -238,6 +238,49 @@
             <mxPoint x="827" y="300" as="sourcePoint" />
             <mxPoint x="880" y="300" as="targetPoint" />
           </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="MuhuN_zaMddVtIFpWl2V" name="metodología">
+    <mxGraphModel dx="819" dy="400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="8F5VdGuFlbOl8wEe5q81-1" value="Captura&lt;div&gt;de datos&lt;/div&gt;" style="shape=step;perimeter=stepPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+          <mxGeometry x="110" y="170" width="150" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="8F5VdGuFlbOl8wEe5q81-2" value="&amp;nbsp; &amp;nbsp;Entrenamiento&amp;nbsp;&lt;div&gt;del modelo&lt;/div&gt;" style="shape=step;perimeter=stepPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+          <mxGeometry x="250" y="170" width="150" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="8F5VdGuFlbOl8wEe5q81-3" value="Aplicación&lt;div&gt;del modelo&lt;/div&gt;" style="shape=step;perimeter=stepPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+          <mxGeometry x="390" y="170" width="150" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="8F5VdGuFlbOl8wEe5q81-5" value="ROS 2" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="110" y="280" width="430" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="8F5VdGuFlbOl8wEe5q81-6" value="Entorno Real" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="330" y="310" width="210" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="8F5VdGuFlbOl8wEe5q81-7" value="Entorno Virtual" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="110" y="310" width="210" height="40" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="r7YT5BKwWoKh22Q-u--F" name="aplicacion">
+    <mxGraphModel dx="819" dy="400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="oHU_3LBeCCJ1LC5R2D8N-1" value="Acercamiento" style="shape=step;perimeter=stepPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+          <mxGeometry x="110" y="170" width="150" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="oHU_3LBeCCJ1LC5R2D8N-2" value="Refinado" style="shape=step;perimeter=stepPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+          <mxGeometry x="250" y="170" width="150" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="oHU_3LBeCCJ1LC5R2D8N-3" value="Agarre" style="shape=step;perimeter=stepPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+          <mxGeometry x="390" y="170" width="150" height="100" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

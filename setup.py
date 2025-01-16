@@ -23,6 +23,9 @@ setup(
             'commander = pria.robot_commander:main',
             'inference = pria.robot_inference:main',
             'usb_camera = pria.usb_camera:main',
+            'data_collection = pria.data_collection:main',
+            'object_detection = pria.object_detection_node:main',
+            'gripper_command = pria.gripper_command:main',
         ],
     },
 )
