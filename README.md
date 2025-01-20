@@ -1,8 +1,8 @@
-## ROS 2 Package to generate new datasets, train PyTorch model on it and use it in a robotic manipulation task.
+# ROS 2 Package to generate new datasets, train PyTorch model on it and use it in a robotic manipulation task.
 
 This package works both in simulation and or with a real robot, supported manipulator is Universal Robots UR5e.  
 
-# For use with simulated robot:
+## For use with simulated robot:
 
 Run NVIDIA Isaac Sim:  
 
@@ -22,7 +22,7 @@ Launch ROS 2 ur_robot_driver package:
     ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=172.17.0.2 launch_rviz:=true
 
 
-# For use with real robot:
+## For use with real robot:
 
 
 Connect the robot controller to the PC through ethernet  
