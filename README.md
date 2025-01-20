@@ -42,7 +42,7 @@ Launch a camera node
 
 ## Once you're setup in either stage (sim or real) you can start creating a dataset:
 
-Place an object somewhere withing the robot's reach  
+Place an object somewhere within the robot's reach  
 Jog the robot to the position relative to the object where the grasping should occur  
 Start the data collection node with the object's name as parameter  
 
