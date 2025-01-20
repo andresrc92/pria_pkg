@@ -102,20 +102,26 @@ class GraspingTask(Node):
         # self.generate_cone_points()
         self.state_machine = 0
 
-        self.path = os.getcwd()
-        self.img_path = os.path.join(self.path, 'trajectories')
+        self.object_dir = os.path.join("dataset", self.directory)
+        
+        self.img_path = os.path.join(self.object_dir, 'trajectories_twist')
+
         try:
             os.mkdir(self.img_path)
         except FileExistsError:
             pass
 
+        self.grip_script_dir = os.path.join(self.object_dir,"gripper_sim.script")
+        self.coarse_model_dir = os.path.join(self.object_dir,"cone_twist")
+        self.fine_model_dir = os.path.join(self.object_dir,"flat_twist")
+
         # Approach stage
-        self.coarse_model = Trainer("./dataset/can/cone_no_twist", 100)
+        self.coarse_model = Trainer(self.coarse_model_dir, 100)
         self.coarse_model.open_model()
         self.coarse_model.open_batch_normalization()
 
         # Pose refinement stage
-        self.fine_model = Trainer("./dataset/can/flat_no_twist", 100)
+        self.fine_model = Trainer(self.fine_model_dir, 100)
         self.fine_model.open_model()
         self.fine_model.open_batch_normalization()
 
@@ -228,41 +234,14 @@ class GraspingTask(Node):
         
         im_array = np.asarray(im)[:, :, :3] / 255
 
-        # plt.imshow(im_array)
-        # plt.show()
-
-        # if self.sim_parameter:
-        #     wrist = 'wrist_3_link_sim'
-        # else:
-        #     wrist = 'wrist_3_link'
-
-        # T, Q = self.lookup_transform_('base_link_inertia', wrist)
-
-        # if not self.homed and not self.inMotion and self.got_first_pose or self.state == 3:
-        # if not self.inMotion and self.got_first_pose and self.state == 3:
-        #     # self.move_to_first_pose(T)
-        #     if self.handle_next_pose(self.index, T):
-        #         filename = "{}_i.png".format(self.index)
-        #         self.capture_and_save_image(im2save, os.path.join(self.img_path, filename))
-        #         self.trajectory_cone = []
-        #         self.trajectory_plane = []
-        #         self.state = 0
-        #         self.homed = True
-
-        # if T[2] < 0.16 and self.state < 2:
-        #     self.state = 2
-        #     print("Robot too low.")
-
-        # if self.homed and self.got_first_pose:
-
         if not self.inMotion:
 
             if self.state_machine == 2:
 
                 predicted_pose = self.coarse_model.infer_from_image(im_array)
-                # print("Estado ", self.state_machine, " | Dist: ", predicted_pose[2])
+                print("Coarse model: ", predicted_pose[2])
 
-                if self.dist(predicted_pose[2]) < 0.005:
+                if self.dist(predicted_pose[:3]) < 0.009:
                     self.reached_goal = True
                 else:
                     # self.trajectory_plane.append(T)
@@ -271,9 +250,9 @@ class GraspingTask(Node):
             elif self.state_machine == 4:
 
                 predicted_pose = self.fine_model.infer_from_image(im_array)
-                # print("Estado ", self.state_machine, " | Dist: ", self.dist(pose[:3]))
+                print("Fine model: ", self.dist(predicted_pose[:3]))
 
-                if self.dist(predicted_pose[:3]) < 0.002:
+                if self.dist(predicted_pose[:3]) < 0.007:
                     self.reached_goal = True
                 else:
                     # self.trajectory_plane.append(T)

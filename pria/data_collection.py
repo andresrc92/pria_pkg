@@ -13,7 +13,7 @@ from datetime import datetime
 import cv2
 from cv_bridge import CvBridge
 
-from std_msgs.msg import String, Int32
+from std_msgs.msg import String, Float32
 from tf2_msgs.msg import TFMessage
 from ur_msgs.msg import IOStates
 from ur_msgs.srv import SetIO
@@ -89,8 +89,8 @@ class DataCollection(Node):
 
         self.bridge = CvBridge()
        
-        self.publisher_ = self.create_publisher(String, '/urscript_interface/script_command', 10)
-        self.gripper_pub = self.create_publisher(Int32, 'gripper', 10)
+        self.urscript_pub = self.create_publisher(String, '/urscript_interface/script_command', 10)
+        self.gripper_pub = self.create_publisher(Float32, 'gripper', 10)
 
         timer_period = 0.3 # seconds
 
@@ -130,51 +130,62 @@ class DataCollection(Node):
         This is called every ${timer_period} seconds
         """
         # print("Maquina de estados: ", self.state_machine)
-        if self.state_machine == 0:
 
-            if self.publish_first_pose() < 0:
-                print("Waiting for transform...")
-                return
+        if self.state_machine == 0:
+            self.move_back()
             
-            if self.inMotion == False and len(self.gt) == 1:
-                self.state_machine = 1
-            
+            self.state_machine = 1
+
         if self.state_machine == 1:
+            if self.inMotion:
+                self.state_machine = 2
+
+        if self.state_machine == 2:
+
+            if not self.inMotion:
+                if self.publish_first_pose() < 0:
+                    print("Waiting for transform...")
+                    return
+                
+                if len(self.gt) == 1:
+                    self.state_machine = 3
+
+        if self.state_machine == 3:
 
             match self.data_index:
                 case 0:
                     self.get_logger().info('Flat surface with no twist')
-                    self.points = self.generate_flat_points(60)
+                    self.points = self.generate_flat_points(r=40)
                 case 1:
                     self.get_logger().info('Flat surface with twist')
-                    self.points = self.generate_flat_points(60, twist=True)
+                    self.points = self.generate_flat_points(r=40, twist=True)
                 case 2:
                     self.get_logger().info('Cone surface with no twist')
-                    self.points = self.generate_cone_points(80)
+                    self.points = self.generate_cone_points(90)
                 case 3:
                     self.get_logger().info('Cone surface with twist')
-                    self.points = self.generate_cone_points(80, twist=True)
+                    self.points = self.generate_cone_points(90, twist=True)
 
             self.generate_paths(self.data_paths[self.data_index])
             self.limit = len(self.points)
 
             if self.inMotion == False:
-                self.state_machine = 2
-
-        if self.state_machine == 2:
-            if self.point_count < self.limit:
-                self.handle_next_pose(self.point_count)
-                self.state_machine = 3
-            else:
                 self.state_machine = 4
 
-        if self.state_machine == 3:
+        if self.state_machine == 4:
+            if self.point_count < self.limit:
+                self.handle_next_pose(self.point_count)
+                self.state_machine = 5
+            else:
+                self.state_machine = 6
+
+        if self.state_machine == 5:
             if self.arrivedToPoint:
-                self.state_machine = 2
+                self.state_machine = 4
                 self.arrivedToPoint = False
                 self.point_count += 1
         
-        if self.state_machine == 4:
+        if self.state_machine == 6:
             self.back_to_first_pose()
 
             print("Took ", self.image_count, " images")
@@ -189,15 +200,15 @@ class DataCollection(Node):
 
             if self.data_index < len(self.data_paths) - 1:
                 self.data_index += 1
-                self.state_machine = 5
+                self.state_machine = 7
                 self.point_count = 0
                 self.image_count = 0
             else:
                 raise SystemExit
         
-        if self.state_machine == 5:
+        if self.state_machine == 7:
             if self.inMotion == False:
-                self.state_machine = 0
+                self.state_machine = 2
         
 
     def generate_paths(self, dataset_path):
@@ -221,7 +232,7 @@ class DataCollection(Node):
         """
 
         # robot motion flag
-        self.inMotion = msg.digital_out_states[0].state
+        self.inMotion = msg.digital_out_states[1].state
 
         if not self.inMotion and self.inMotionPrev:
             # Falling edge
@@ -230,10 +241,10 @@ class DataCollection(Node):
         self.inMotionPrev = self.inMotion
 
         # gripper control in Isaac Sim
-        if msg.digital_out_states[1].state:
-            self.gripper_pub.publish(Int32(data=1))
+        if msg.digital_out_states[0].state:
+            self.gripper_pub.publish(Float32(data=0.1))
         else:
-            self.gripper_pub.publish(Int32(data=-1))
+            self.gripper_pub.publish(Float32(data=-0.1))
 
     def rgb_listener_callback(self, msg):
         """
@@ -244,7 +255,7 @@ class DataCollection(Node):
         # self.color_filter(self.cv_image)    
         img_time = msg.header.stamp
 
-        if self.state_machine == 2 or self.state_machine == 3:
+        if self.state_machine == 4 or self.state_machine == 5:
 
             if self.sim_parameter:
                 wrist = 'wrist_3_link_sim'
@@ -456,13 +467,21 @@ class DataCollection(Node):
 
         self.send_urscript(base_to_next_matrix[:3,3], next_rotation)
 
+    def move_back(self):
+        msg = String()
+
+        with open('./urscripts/move_back.script', 'r') as f:
+            msg.data = f.read()
+
+        self.urscript_pub.publish(msg)
+
     def send_urscript(self, translation, rotation):
         """
         Using the primary interface to send URScripts programs to move the robot
         """
         msg = String()
-        msg.data = """def my_prog():\nset_digital_out(0, True)\nmovej(p[{},{},{},{},{},{}], a=0.1, v=0.08, r=0)\nset_digital_out(0, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
-        self.publisher_.publish(msg)
+        msg.data = """def my_prog():\nset_digital_out(1, True)\nmovej(p[{},{},{},{},{},{}], a=0.1, v=0.08, r=0)\nset_digital_out(1, False)\nend""".format(translation[0],translation[1], translation[2], rotation[0], rotation[1], rotation[2])
+        self.urscript_pub.publish(msg)
         # self.get_logger().info(msg.data)
 
     def back_to_first_pose(self):
