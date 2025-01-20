@@ -2,7 +2,9 @@
 
 This repository contains the code for my **Robotics and AI Specialization** capstone project. It also contains code prototypes and tests, written by me as part of my learning and experimentation.
 
-The package works both in simulation or with a real robot, supported manipulator is Universal Robots UR5e.  
+The code in this repository is subject to modifications as a result of on-going work on improving performance, adding features and code refactoring.
+
+Currently, the package works both in simulation or with a real robot, supported manipulator is Universal Robots UR5e.  
 
 ## For use with simulated robot:
 
