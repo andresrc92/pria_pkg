@@ -1,6 +1,6 @@
 # ROS 2 Package to generate new datasets, train PyTorch model on it and use it in a robotic manipulation task.
 
-This repository contains the code for my **Robotics and AI Specialization** capstone project. It also contains code prototypes and tests, written by me as part of my learning and experimentation.
+This repository contains the code for my **Robotics and AI Specialization** (PRIA, hence the name) capstone project. It also contains code prototypes and tests, written by me as part of my learning and experimentation.
 
 The code in this repository is subject to modifications as a result of on-going work on improving performance, adding features and code refactoring.
 
