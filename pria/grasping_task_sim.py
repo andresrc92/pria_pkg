@@ -258,22 +258,6 @@ class GraspingTask(Node):
                     # self.trajectory_plane.append(T)
                     self.handle_predicted_pose(predicted_pose)
 
-                # elif self.state == 2:
-                #     filename = "{}_f.png".format(self.index)
-                #     self.capture_and_save_image(im2save, os.path.join(self.img_path, filename))
-                #     self.state = 3
-                #     self.update_trajectories(self.index)
-                #     self.index += 1
-                #     print("Trajectory ", self.index)
-                #     self.homed = False
-
-                # else:
-                #     print("Waiting for next trajectory..")
-
-            # if self.index >= self.max_points:
-            #     self.save_trajectories()
-            #     raise SystemExit
-
             
     def dist(self,vector):
         p = np.power(vector,2)
@@ -428,15 +412,6 @@ class GraspingTask(Node):
                 self.initial_matrix = self.create_transformation_matrix(rotation, translation)
                 self.got_first_pose = True
                 self.publish_first_pose()
-                # self.gt.update({
-                #     'initial_pose': {
-                #         'translation':translation,
-                #         'rotation':rotation,
-                #         'total_images': self.image_count_max,
-                #         'height':self.image_height,
-                #         'width':self.image_width
-                #     }
-                # })
 
 
             return translation, rotation
@@ -483,33 +458,6 @@ class GraspingTask(Node):
         self.publish_tf(np.concatenate((translation, rotation)),'base_link_inertia','initial_pose', True)
 
         return 0
-
-    # def generate_cone_points(self, r = 50, z = 200.0, twist=False):
-    #     x = np.arange(-r, r, r*0.8) / 1000
-    #     y = np.arange(-r, r, r*0.8) / 1000
-
-    #     z /= 1000
-    #     z *= -1
-
-    #     self.close_points = []
-
-    #     for i in x:
-    #         for j in y:
-
-    #             if twist:
-    #                 r = Rotations()
-    #                 r.from_euler(0, 0, random.randrange(-50, 50, 1) / 100 )
-    #                 q = r.as_quat()
-    #             else:
-    #                 q = [0.0,0.0,0.0,1.0]
-
-    #             self.close_points.append([i,j,z,q[0],q[1],q[2],q[3]])
-
-    #     self.max_points = len(self.close_points)
-        
-    #     for i, point in enumerate(self.close_points):
-    #         self.publish_tf(point, 'initial_pose', '{}'.format(i))
-
 
     def handle_next_pose(self, index, current):
         # t_next_pose = self.points[index,:3]
@@ -589,33 +537,6 @@ class GraspingTask(Node):
         self.publisher_.publish(msg)
 
 
-    # def lookup_transform(self, to_frame_rel, from_frame_rel,array=True):
-    #     """
-    #     Search for transformations between two specific frames.
-        
-    #     If array is True, it returns a translation and rotation array (w = q[3])
-    #     """
-
-    #     try:
-    #         t = self.tf_buffer.lookup_transform(
-    #         to_frame_rel,
-    #         from_frame_rel,
-    #         rclpy.time.Time(),
-    #         timeout=rclpy.duration.Duration(seconds=1.0))
-
-    #         translation = [t.transform.translation.x, t.transform.translation.y,t.transform.translation.z]
-    #         rotation = [t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w]
-
-    #         if array:
-    #             return translation, rotation
-    #         else:
-    #             return t.transform.translation, t.transform.rotation
-
-    #     except TransformException as ex:
-    #         self.get_logger().info(
-    #             f'Could not transform {to_frame_rel} to {from_frame_rel}: {ex}')
-    #         return [0,0,0],[0,0,0,1]
-    
     def print_transformation_matrix(self, H):
         a, b, c, d = H[0,:]
         e, f, g, h = H[1,:]
