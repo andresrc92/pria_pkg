@@ -47,7 +47,7 @@ Start the data collection node with the object's name as parameter
 This will start to move the robot around the object, saving the images and the robot position relative to the goal position. In total it will create 4 data folders, each with the images taken during 4 different trajectories around the object.
 
 
-## Model trainning
+## Model training
 
 The model training script isn't actually a ROS node, but it's located in this package.  
 
